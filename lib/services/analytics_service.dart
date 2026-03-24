@@ -76,6 +76,15 @@ class FirebaseAnalyticsService {
     _log('undo_used', {'level': level, 'move_number': moveNumber});
   }
 
+  /// Log when hint is used.
+  Future<void> logHintUsed({
+    required int level,
+    required int moveNumber,
+  }) async {
+    if (!_isInitialized) return;
+    _log('hint_used', {'level': level, 'move_number': moveNumber});
+  }
+
   /// Stub logging - replace with real Firebase calls when configured.
   void _log(String name, Map<String, Object> params) {
     // When Firebase is configured, replace with:

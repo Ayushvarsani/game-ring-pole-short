@@ -6,6 +6,7 @@ import '../models/bottle_model.dart';
 enum GameStatus {
   playing,
   won,
+  gameOver,
   animating, // While pour animation is running
 }
 
@@ -29,11 +30,25 @@ class GameState extends Equatable {
   /// Total number of moves made this level.
   final int moveCount;
 
+  /// Maximum allowed moves for this level.
+  final int moveLimit;
+
   /// Total undos used this level.
   final int undoCount;
 
   /// Timestamp when the level started.
   final DateTime levelStartTime;
+
+  // ── Hint state ──
+
+  /// Number of hints remaining for the current level.
+  final int hintsRemaining;
+
+  /// Source bottle index for hint highlight, or -1 if no hint.
+  final int hintSourceIndex;
+
+  /// Destination bottle index for hint highlight, or -1 if no hint.
+  final int hintDestIndex;
 
   // ── Animation state ──
 
@@ -56,8 +71,12 @@ class GameState extends Equatable {
     this.status = GameStatus.playing,
     this.moveHistory = const [],
     this.moveCount = 0,
+    this.moveLimit = 0,
     this.undoCount = 0,
     required this.levelStartTime,
+    this.hintsRemaining = 3,
+    this.hintSourceIndex = -1,
+    this.hintDestIndex = -1,
     this.animSourceIndex = -1,
     this.animDestIndex = -1,
     this.animColorCount = 0,
@@ -72,8 +91,12 @@ class GameState extends Equatable {
     GameStatus? status,
     List<PourMove>? moveHistory,
     int? moveCount,
+    int? moveLimit,
     int? undoCount,
     DateTime? levelStartTime,
+    int? hintsRemaining,
+    int? hintSourceIndex,
+    int? hintDestIndex,
     int? animSourceIndex,
     int? animDestIndex,
     int? animColorCount,
@@ -86,8 +109,12 @@ class GameState extends Equatable {
       status: status ?? this.status,
       moveHistory: moveHistory ?? this.moveHistory,
       moveCount: moveCount ?? this.moveCount,
+      moveLimit: moveLimit ?? this.moveLimit,
       undoCount: undoCount ?? this.undoCount,
       levelStartTime: levelStartTime ?? this.levelStartTime,
+      hintsRemaining: hintsRemaining ?? this.hintsRemaining,
+      hintSourceIndex: hintSourceIndex ?? this.hintSourceIndex,
+      hintDestIndex: hintDestIndex ?? this.hintDestIndex,
       animSourceIndex: animSourceIndex ?? this.animSourceIndex,
       animDestIndex: animDestIndex ?? this.animDestIndex,
       animColorCount: animColorCount ?? this.animColorCount,
@@ -98,6 +125,9 @@ class GameState extends Equatable {
   /// Whether the game has been won (all bottles solved or empty).
   bool get isWon => bottles.every((b) => b.isEmpty || b.isSolved);
 
+  /// Whether this level has used all allowed moves.
+  bool get isOutOfMoves => moveLimit > 0 && moveCount >= moveLimit;
+
   @override
   List<Object?> get props => [
         bottles,
@@ -106,8 +136,12 @@ class GameState extends Equatable {
         status,
         moveHistory,
         moveCount,
+        moveLimit,
         undoCount,
         levelStartTime,
+        hintsRemaining,
+        hintSourceIndex,
+        hintDestIndex,
         animSourceIndex,
         animDestIndex,
         animColorCount,

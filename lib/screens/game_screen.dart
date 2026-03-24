@@ -1,10 +1,12 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/game_cubit.dart';
 import '../bloc/game_state.dart';
 import '../bloc/settings_cubit.dart';
+import '../bloc/shop_cubit.dart';
+import '../models/bottle_type.dart';
+import '../services/coin_service.dart';
 import '../painters/liquid_painter.dart';
 import '../painters/pouring_stream_painter.dart';
 
@@ -38,12 +40,17 @@ class _GameScreenState extends State<GameScreen>
   // ── Bottle position keys for calculating stream path ──
   final Map<int, GlobalKey> _bottleKeys = {};
 
+  // ── Celebration animation for solved bottles ──
+  late AnimationController _celebrationController;
+
   // ── Track if pour animation is active ──
   bool _isAnimating = false;
 
-  /// Briefly highlights all non-empty bottles (Shuffle hint).
-  bool _highlightNonEmpty = false;
-  Timer? _shuffleHighlightTimer;
+  // ── Track which bottles are newly solved (for cap drop + celebration) ──
+  Set<int> _newlySolvedBottles = {};
+
+  // ── Track previously solved bottles (cap stays, no celebration) ──
+  Set<int> _previouslySolvedBottles = {};
 
   // ── Base positions for animation ──
   Offset _sourcePos = Offset.zero;
@@ -126,8 +133,31 @@ class _GameScreenState extends State<GameScreen>
 
     _pourController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
+        // Capture which bottles were solved BEFORE completing pour
+        final preState = context.read<GameCubit>().state;
+        final preSolved = <int>{};
+        for (int i = 0; i < preState.bottles.length; i++) {
+          if (preState.bottles[i].isSolved) preSolved.add(i);
+        }
+
         setState(() => _isAnimating = false);
         context.read<GameCubit>().completePour();
+
+        // Check which bottles became newly solved AFTER pour
+        final postState = context.read<GameCubit>().state;
+        final newSolved = <int>{};
+        for (int i = 0; i < postState.bottles.length; i++) {
+          if (postState.bottles[i].isSolved && !preSolved.contains(i) && !_previouslySolvedBottles.contains(i)) {
+            newSolved.add(i);
+          }
+        }
+
+        if (newSolved.isNotEmpty) {
+          setState(() {
+            _newlySolvedBottles = newSolved;
+          });
+          _celebrationController.forward(from: 0.0);
+        }
       }
     });
 
@@ -136,40 +166,34 @@ class _GameScreenState extends State<GameScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+
+    // Celebration animation: cap drop + sparkles (~800ms)
+    _celebrationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _celebrationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          // Move newly solved to previously solved (cap stays, particles stop)
+          _previouslySolvedBottles.addAll(_newlySolvedBottles);
+          _newlySolvedBottles = {};
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    _shuffleHighlightTimer?.cancel();
     _pourController.dispose();
     _wobbleController.dispose();
+    _celebrationController.dispose();
     super.dispose();
-  }
-
-  static const _shuffleHighlightDuration = Duration(milliseconds: 2000);
-
-  void _onShuffleTap() {
-    if (_isAnimating) return;
-    final state = context.read<GameCubit>().state;
-    if (state.status == GameStatus.won) return;
-
-    context.read<GameCubit>().shuffleLevel();
-
-    _shuffleHighlightTimer?.cancel();
-    setState(() => _highlightNonEmpty = true);
-    context.read<SettingsCubit>().playClickSound();
-    context.read<SettingsCubit>().triggerLightHaptic();
-
-    _shuffleHighlightTimer = Timer(_shuffleHighlightDuration, () {
-      if (mounted) setState(() => _highlightNonEmpty = false);
-    });
   }
 
   /// Start the coordinated pour animation.
   void _startPourAnimation() {
     setState(() {
-      _highlightNonEmpty = false;
-      _shuffleHighlightTimer?.cancel();
       _isAnimating = true;
       final state = context.read<GameCubit>().state;
       _sourcePos = _getBottleBasePosition(state.animSourceIndex);
@@ -191,13 +215,23 @@ class _GameScreenState extends State<GameScreen>
   Widget build(BuildContext context) {
     return BlocConsumer<GameCubit, GameState>(
       listenWhen: (prev, curr) =>
-          prev.status != curr.status,
+          prev.status != curr.status || prev.level != curr.level,
       listener: (context, state) {
         if (state.status == GameStatus.animating && !_isAnimating) {
           _startPourAnimation();
         }
         if (state.status == GameStatus.won) {
-          _showWinDialog(context, state);
+          final reward = CoinService.rewardForLevel(state.level);
+          context.read<ShopCubit>().addCoinsFromLevelReward(state.level);
+          _showWinDialog(context, reward);
+        }
+        if (state.status == GameStatus.gameOver) {
+          _showGameOverDialog(context, state);
+        }
+        // Reset solved tracking on new level or restart
+        if (state.moveCount == 0) {
+          _previouslySolvedBottles = {};
+          _newlySolvedBottles = {};
         }
       },
       builder: (context, state) {
@@ -231,66 +265,66 @@ class _GameScreenState extends State<GameScreen>
           ],
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Level indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF4FC3F7)],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Text(
-              'Level ${state.level}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
           ),
-          // Move counter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                context.read<SettingsCubit>().playClickSound();
+                context.read<SettingsCubit>().triggerLightHaptic();
+                Navigator.of(context).pop();
+              },
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 24,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.swap_vert_rounded,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${state.moveCount} moves',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Level ${state.level}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.swap_vert_rounded,
+                    color: Colors.white.withValues(alpha: 0.75),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${max(0, state.moveLimit - state.moveCount)} moves',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -318,7 +352,7 @@ class _GameScreenState extends State<GameScreen>
     }
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_pourController, _wobbleController]),
+      animation: Listenable.merge([_pourController, _wobbleController, _celebrationController]),
       builder: (context, child) {
         return Stack(
           children: [
@@ -341,7 +375,7 @@ class _GameScreenState extends State<GameScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: row.map((idx) {
-                            return _buildBottleWidget(context, state, idx);
+                            return _buildBottleWidget(context, state, idx, bottleType: context.read<ShopCubit>().state.selectedType);
                           }).toList(),
                         ),
                       );
@@ -374,21 +408,20 @@ class _GameScreenState extends State<GameScreen>
   }
 
   /// Builds a single bottle widget with its CustomPainter.
-  Widget _buildBottleWidget(BuildContext context, GameState state, int index) {
+  Widget _buildBottleWidget(BuildContext context, GameState state, int index, {BottleType bottleType = BottleType.classic}) {
     // Ensure we have a GlobalKey for position tracking
     _bottleKeys.putIfAbsent(index, () => GlobalKey());
 
     final bottle = state.bottles[index];
     final isSelected = state.selectedBottleIndex == index;
     final isSource = _isAnimating && state.animSourceIndex == index;
-    final highlightAsNonEmpty =
-        _highlightNonEmpty && bottle.isNotEmpty;
-    final isHighlighted = isSelected || highlightAsNonEmpty;
+    final isHint = state.hintSourceIndex == index || state.hintDestIndex == index;
+    final isHighlighted = isSelected;
 
     // ── Calculate tilt angle and translation ──
     double tiltAngle = 0.0;
     double translateX = 0.0;
-    double translateY = isHighlighted ? -12.0 : 0.0;
+    double translateY = (isHighlighted || isHint) ? -12.0 : 0.0;
 
     if (isSource && _isAnimating && _sourcePos != Offset.zero && _destPos != Offset.zero) {
       final destIdx = state.animDestIndex;
@@ -443,8 +476,16 @@ class _GameScreenState extends State<GameScreen>
               isSource: isSource,
               pourCount: isSource ? state.animColorCount : 0,
               isSelected: isHighlighted,
+              isHint: isHint,
               wobblePhase: wobblePhase,
               isSolved: bottle.isSolved,
+              capProgress: _newlySolvedBottles.contains(index)
+                  ? _celebrationController.value
+                  : (_previouslySolvedBottles.contains(index) || bottle.isSolved ? 1.0 : 0.0),
+              celebrationProgress: _newlySolvedBottles.contains(index)
+                  ? _celebrationController.value
+                  : 0.0,
+              bottleType: bottleType,
             ),
             size: const Size(56, 150),
           ),
@@ -478,7 +519,7 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
-  /// Builds the bottom action bar with Undo, Shuffle hint, and Restart.
+  /// Builds the bottom action bar with Undo and Restart.
   Widget _buildBottomBar(BuildContext context, GameState state) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -493,12 +534,14 @@ class _GameScreenState extends State<GameScreen>
         ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(
+          SizedBox(
+            width: 96,
+            height: 96,
             child: _buildActionButton(
               icon: Icons.undo_rounded,
               label: 'Undo',
-              compact: true,
               onTap: state.moveHistory.isNotEmpty
                   ? () {
                       context.read<SettingsCubit>().playClickSound();
@@ -508,30 +551,36 @@ class _GameScreenState extends State<GameScreen>
                   : null,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 96,
+            height: 96,
             child: _buildActionButton(
-              icon: Icons.shuffle_rounded,
-              label: 'Shuffle',
-              compact: true,
-              onTap: () {
-                _onShuffleTap();
-              },
+              icon: Icons.lightbulb_outline_rounded,
+              label: 'Hint',
+              badgeCount: state.hintsRemaining,
+              onTap: state.status == GameStatus.playing &&
+                      state.hintsRemaining > 0
+                  ? () {
+                      context.read<SettingsCubit>().playClickSound();
+                      context.read<SettingsCubit>().triggerLightHaptic();
+                      context.read<GameCubit>().getHint();
+                    }
+                  : null,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 96,
+            height: 96,
             child: _buildActionButton(
               icon: Icons.refresh_rounded,
               label: 'Restart',
               onTap: () {
-                _shuffleHighlightTimer?.cancel();
-                setState(() => _highlightNonEmpty = false);
                 context.read<SettingsCubit>().playClickSound();
                 context.read<SettingsCubit>().triggerLightHaptic();
                 context.read<GameCubit>().restartLevel();
               },
-              compact: true,
             ),
           ),
         ],
@@ -539,22 +588,21 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  /// Builds a styled action button.
+  /// Builds a styled action button with optional badge count on the icon.
   Widget _buildActionButton({
     required IconData icon,
     required String label,
     VoidCallback? onTap,
-    bool compact = false,
+    int? badgeCount,
   }) {
     final isEnabled = onTap != null;
-    final hPad = compact ? 10.0 : 24.0;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
         opacity: isEnabled ? 1.0 : 0.35,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
@@ -571,11 +619,53 @@ class _GameScreenState extends State<GameScreen>
                   ]
                 : null,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
+              if (badgeCount != null)
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 22),
+                    Positioned(
+                      top: -8,
+                      right: -12,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: badgeCount > 0
+                              ? const Color(0xFFE53935)
+                              : Colors.grey,
+                          shape: BoxShape.circle,
+                          boxShadow: badgeCount > 0
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFFE53935)
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 4,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$badgeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Icon(icon, color: Colors.white, size: 22),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: const TextStyle(
@@ -592,7 +682,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   /// Shows the win dialog with next level option.
-  void _showWinDialog(BuildContext context, GameState state) {
+  void _showWinDialog(BuildContext context, int coinsEarned) {
     context.read<SettingsCubit>().playClickSound();
     context.read<SettingsCubit>().triggerHeavyHaptic();
     showDialog(
@@ -658,12 +748,25 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  '${state.moveCount} moves  •  ${state.undoCount} undos',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.monetization_on_rounded,
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.95),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+$coinsEarned coins',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 28),
                 // Next Level Button
@@ -699,6 +802,136 @@ class _GameScreenState extends State<GameScreen>
                       ),
                     ),
                   ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Shows a game-over dialog when move limit is reached.
+  void _showGameOverDialog(BuildContext context, GameState state) {
+    context.read<SettingsCubit>().playClickSound();
+    context.read<SettingsCubit>().triggerHeavyHaptic();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1A1F3A), Color(0xFF0A0E21)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF5252).withValues(alpha: 0.25),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFFF5252).withValues(alpha: 0.2),
+                  ),
+                  child: const Icon(
+                    Icons.sentiment_dissatisfied_rounded,
+                    color: Color(0xFFFF6E6E),
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Game Over',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Move limit reached.\n${state.moveCount}/${state.moveLimit} moves used.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                            ),
+                          ),
+                          child: const Text(
+                            'Home',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          context.read<GameCubit>().restartLevel();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6C63FF), Color(0xFF4FC3F7)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Text(
+                            'Restart',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

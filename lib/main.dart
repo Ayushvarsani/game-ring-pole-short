@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'screens/splash_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/settings_cubit.dart';
+import 'bloc/shop_cubit.dart';
 // import 'services/analytics_service.dart'; // Uncomment when Firebase is configured
 
 void main() async {
@@ -36,8 +37,11 @@ class WaterSortApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => SettingsCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => SettingsCubit()),
+        BlocProvider(create: (_) => ShopCubit()),
+      ],
       child: MaterialApp(
         title: 'Water Sort Puzzle',
         debugShowCheckedModeBanner: false,

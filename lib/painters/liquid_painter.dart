@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/bottle_model.dart';
+import '../models/bottle_type.dart';
 import '../models/game_colors.dart';
 
 /// CustomPainter that renders a single bottle with liquid.
@@ -33,11 +34,23 @@ class LiquidPainter extends CustomPainter {
   /// Whether this bottle is currently selected by the player.
   final bool isSelected;
 
+  /// Whether this bottle is highlighted as a hint.
+  final bool isHint;
+
   /// Time-based wobble phase for the sine wave animation.
   final double wobblePhase;
 
   /// Whether the bottle is solved (all same color and full).
   final bool isSolved;
+
+  /// Animation progress for the bottle cap dropping (0.0 = above, 1.0 = seated).
+  final double capProgress;
+
+  /// Animation progress for celebration particles (0.0 = start, 1.0 = done).
+  final double celebrationProgress;
+
+  /// The bottle shape type from the shop.
+  final BottleType bottleType;
 
   LiquidPainter({
     required this.bottle,
@@ -46,8 +59,12 @@ class LiquidPainter extends CustomPainter {
     this.isSource = false,
     this.pourCount = 0,
     this.isSelected = false,
+    this.isHint = false,
     this.wobblePhase = 0.0,
     this.isSolved = false,
+    this.capProgress = 0.0,
+    this.celebrationProgress = 0.0,
+    this.bottleType = BottleType.classic,
   });
 
   @override
@@ -55,14 +72,45 @@ class LiquidPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // ── Bottle dimensions ──
-    // The bottle is drawn within the given size.
-    // We leave some padding at top for the bottle neck/opening.
-    final bottleWidth = w * 0.7;
-    final bottleHeight = h * 0.75;
-    final neckWidth = bottleWidth * 0.45;
-    final neckHeight = h * 0.15;
-    final cornerRadius = bottleWidth * 0.2;
+    // ── Bottle dimensions (vary by bottle type) ──
+    late final double bottleWidth;
+    late final double bottleHeight;
+    late final double neckWidth;
+    late final double neckHeight;
+    late final double cornerRadius;
+
+    switch (bottleType) {
+      case BottleType.classic:
+        bottleWidth = w * 0.7;
+        bottleHeight = h * 0.75;
+        neckWidth = bottleWidth * 0.45;
+        neckHeight = h * 0.15;
+        cornerRadius = bottleWidth * 0.2;
+      case BottleType.round:
+        bottleWidth = w * 0.8;
+        bottleHeight = h * 0.7;
+        neckWidth = bottleWidth * 0.35;
+        neckHeight = h * 0.18;
+        cornerRadius = bottleWidth * 0.45;
+      case BottleType.square:
+        bottleWidth = w * 0.75;
+        bottleHeight = h * 0.72;
+        neckWidth = bottleWidth * 0.5;
+        neckHeight = h * 0.12;
+        cornerRadius = bottleWidth * 0.08;
+      case BottleType.tall:
+        bottleWidth = w * 0.55;
+        bottleHeight = h * 0.82;
+        neckWidth = bottleWidth * 0.5;
+        neckHeight = h * 0.1;
+        cornerRadius = bottleWidth * 0.15;
+      case BottleType.wide:
+        bottleWidth = w * 0.85;
+        bottleHeight = h * 0.62;
+        neckWidth = bottleWidth * 0.35;
+        neckHeight = h * 0.2;
+        cornerRadius = bottleWidth * 0.25;
+    }
 
     // Center horizontally
     final left = (w - bottleWidth) / 2;
@@ -94,6 +142,9 @@ class LiquidPainter extends CustomPainter {
     _drawLiquid(canvas, left, right, top, bottom, neckLeft, neckRight,
         neckTop, cornerRadius, bottleWidth, bottleHeight, w, h);
 
+    // ── Mouth rim above liquid (liquid must not cover the opening line) ──
+    _drawBottleMouthRim(canvas, neckLeft, neckRight, neckTop);
+
     // ── Draw bottle glass overlay (reflections/highlights) ──
     _drawGlassHighlights(canvas, left, right, top, bottom, neckLeft,
         neckRight, neckTop, cornerRadius, bottleWidth, bottleHeight, w, h);
@@ -104,12 +155,124 @@ class LiquidPainter extends CustomPainter {
           neckRight, neckTop, cornerRadius, w, h);
     }
 
-    // ── Draw solved checkmark ──
-    if (isSolved) {
-      _drawSolvedIndicator(canvas, w, h, neckTop);
+    // ── Draw hint indicator ──
+    if (isHint) {
+      _drawHintGlow(canvas, left, right, top, bottom, neckLeft,
+          neckRight, neckTop, cornerRadius, w, h);
+    }
+
+    // ── Draw bottle cap when solved ──
+    if (isSolved && capProgress > 0.0) {
+      _drawBottleCap(canvas, w, neckLeft, neckRight, neckTop, capProgress);
+    }
+
+    // ── Draw celebration particles ──
+    if (isSolved && celebrationProgress > 0.0 && celebrationProgress < 1.0) {
+      _drawCelebration(canvas, w, h, neckTop, bottleHeight);
     }
 
     canvas.restore();
+  }
+
+  /// Builds the bottle body path based on the current [bottleType].
+  Path _buildBottlePath(
+    double left,
+    double right,
+    double top,
+    double bottom,
+    double neckLeft,
+    double neckRight,
+    double neckTop,
+    double cornerRadius,
+    double bottleWidth,
+    double w,
+  ) {
+    switch (bottleType) {
+      case BottleType.classic:
+        return Path()
+          ..moveTo(neckLeft, neckTop)
+          ..lineTo(neckLeft, top + 2)
+          ..quadraticBezierTo(neckLeft, top, left + cornerRadius * 0.3, top)
+          ..lineTo(left, top + cornerRadius * 0.3)
+          ..lineTo(left, bottom - cornerRadius)
+          ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+          ..lineTo(right - cornerRadius, bottom)
+          ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
+          ..lineTo(right, top + cornerRadius * 0.3)
+          ..lineTo(neckRight - cornerRadius * 0.3 + (right - neckRight), top)
+          ..quadraticBezierTo(neckRight, top, neckRight, top + 2)
+          ..lineTo(neckRight, neckTop)
+          ..close();
+
+      case BottleType.round:
+        // Flask shape: bulbous body with narrow neck
+        final midY = top + (bottom - top) * 0.35;
+        return Path()
+          ..moveTo(neckLeft, neckTop)
+          ..lineTo(neckLeft, top + 4)
+          // Smooth curve outward from neck to body
+          ..cubicTo(neckLeft - 2, midY * 0.95, left - 2, midY * 0.85, left, midY)
+          // Round bottom using large arcs
+          ..quadraticBezierTo(left - 2, bottom, left + bottleWidth * 0.5, bottom)
+          ..quadraticBezierTo(right + 2, bottom, right, midY)
+          // Right curve from body to neck
+          ..cubicTo(right + 2, midY * 0.85, neckRight + 2, midY * 0.95, neckRight, top + 4)
+          ..lineTo(neckRight, neckTop)
+          ..close();
+
+      case BottleType.square:
+        // Jar shape: boxy body, small corners, wide neck
+        return Path()
+          ..moveTo(neckLeft, neckTop)
+          ..lineTo(neckLeft, top + 2)
+          ..lineTo(left + cornerRadius, top)
+          ..lineTo(left, top + cornerRadius)
+          ..lineTo(left, bottom - cornerRadius)
+          ..lineTo(left + cornerRadius, bottom)
+          ..lineTo(right - cornerRadius, bottom)
+          ..lineTo(right, bottom - cornerRadius)
+          ..lineTo(right, top + cornerRadius)
+          ..lineTo(right - cornerRadius, top)
+          ..lineTo(neckRight, top + 2)
+          ..lineTo(neckRight, neckTop)
+          ..close();
+
+      case BottleType.tall:
+        // Tall slim bottle: slight taper, small neck difference
+        final taperIn = bottleWidth * 0.06;
+        return Path()
+          ..moveTo(neckLeft, neckTop)
+          ..lineTo(neckLeft, top + 2)
+          ..quadraticBezierTo(neckLeft, top, left + taperIn, top)
+          ..lineTo(left, top + (bottom - top) * 0.25)
+          ..lineTo(left, bottom - cornerRadius)
+          ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+          ..lineTo(right - cornerRadius, bottom)
+          ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
+          ..lineTo(right, top + (bottom - top) * 0.25)
+          ..lineTo(right - taperIn, top)
+          ..quadraticBezierTo(neckRight, top, neckRight, top + 2)
+          ..lineTo(neckRight, neckTop)
+          ..close();
+
+      case BottleType.wide:
+        // Wide bowl shape: broad body, long narrow neck
+        final bodyTop = top + (bottom - top) * 0.15;
+        return Path()
+          ..moveTo(neckLeft, neckTop)
+          ..lineTo(neckLeft, top + 2)
+          // Flare out to wide body
+          ..cubicTo(neckLeft, bodyTop * 0.98, left, bodyTop * 0.95, left, bodyTop)
+          ..lineTo(left, bottom - cornerRadius)
+          ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+          ..lineTo(right - cornerRadius, bottom)
+          ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
+          ..lineTo(right, bodyTop)
+          // Narrow from body to neck
+          ..cubicTo(right, bodyTop * 0.95, neckRight, bodyTop * 0.98, neckRight, top + 2)
+          ..lineTo(neckRight, neckTop)
+          ..close();
+    }
   }
 
   /// Draws the glass bottle outline and inner shadow.
@@ -129,31 +292,8 @@ class LiquidPainter extends CustomPainter {
     double w,
     double h,
   ) {
-    // Bottle body path with rounded bottom and straight neck
-    final bodyPath = Path()
-      // Start at neck top-left
-      ..moveTo(neckLeft, neckTop)
-      // Left side of neck down to body
-      ..lineTo(neckLeft, top + 2)
-      // Transition from neck to body (left side curve)
-      ..quadraticBezierTo(neckLeft, top, left + cornerRadius * 0.3, top)
-      ..lineTo(left, top + cornerRadius * 0.3)
-      // Left side of body down
-      ..lineTo(left, bottom - cornerRadius)
-      // Bottom-left corner
-      ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
-      // Bottom side
-      ..lineTo(right - cornerRadius, bottom)
-      // Bottom-right corner
-      ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
-      // Right side up
-      ..lineTo(right, top + cornerRadius * 0.3)
-      // Right side transition curve
-      ..lineTo(neckRight - cornerRadius * 0.3 + (right - neckRight), top)
-      ..quadraticBezierTo(neckRight, top, neckRight, top + 2)
-      // Right side of neck up
-      ..lineTo(neckRight, neckTop)
-      ..close();
+    final bodyPath = _buildBottlePath(
+        left, right, top, bottom, neckLeft, neckRight, neckTop, cornerRadius, bottleWidth, w);
 
     // Glass fill (semi-transparent)
     final glassPaint = Paint()
@@ -169,7 +309,18 @@ class LiquidPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(bodyPath, borderPaint);
 
-    // Mouth rim (top of neck)
+    // Mouth rim is drawn after liquid so it stays visible on top — see
+    // [_drawBottleMouthRim].
+  }
+
+  /// Draws the mouth rim on top of liquid so the opening reads as glass, not
+  /// liquid sitting above the cap line.
+  void _drawBottleMouthRim(
+    Canvas canvas,
+    double neckLeft,
+    double neckRight,
+    double neckTop,
+  ) {
     final rimPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
@@ -209,17 +360,11 @@ class LiquidPainter extends CustomPainter {
       effectiveSegments = segmentCount - (pourCount * levelProgress);
     }
 
-    // Create a clipping region for the bottle's interior
-    final clipPath = Path()
-      ..moveTo(left + 1.5, top + cornerRadius * 0.3)
-      ..lineTo(left + 1.5, bottom - cornerRadius)
-      ..quadraticBezierTo(
-          left + 1.5, bottom - 1.5, left + cornerRadius, bottom - 1.5)
-      ..lineTo(right - cornerRadius, bottom - 1.5)
-      ..quadraticBezierTo(
-          right - 1.5, bottom - 1.5, right - 1.5, bottom - cornerRadius)
-      ..lineTo(right - 1.5, top + cornerRadius * 0.3)
-      ..close();
+    // Create a clipping region for the bottle's interior (inset from outer path)
+    final clipPath = _buildBottlePath(
+        left + 1.5, right - 1.5, top, bottom - 1.5,
+        neckLeft + 1, neckRight - 1, neckTop + 1,
+        cornerRadius * 0.9, bottleWidth - 3, w);
 
     // Mapping effectiveSegments to world bounds height.
     Matrix4 matrix = Matrix4.identity();
@@ -234,8 +379,18 @@ class LiquidPainter extends CustomPainter {
     Path worldClipPath = clipPath.transform(matrix.storage);
     Rect worldBounds = worldClipPath.getBounds();
 
-    double segmentHeight = worldBounds.height / kMaxBottleCapacity;
-    double currentWorldBottom = worldBounds.bottom;
+    // Upright: split fill only across the body so the neck stays empty glass.
+    // Tilted: use full transformed bounds so pour math stays consistent.
+    final double segmentHeight;
+    final double fillBottomStart;
+    if (tiltAngle == 0.0) {
+      segmentHeight = (bottom - top) / kMaxBottleCapacity;
+      fillBottomStart = bottom;
+    } else {
+      segmentHeight = worldBounds.height / kMaxBottleCapacity;
+      fillBottomStart = worldBounds.bottom;
+    }
+    double currentWorldBottom = fillBottomStart;
 
     for (int i = 0; i < segmentCount; i++) {
       double thisSegHeight;
@@ -284,7 +439,7 @@ class LiquidPainter extends CustomPainter {
         canvas.clipRect(Rect.fromLTRB(left - 20, segTop, right + 20, currentWorldBottom));
       }
 
-      // Draw the entire liquid local rect
+      // Body only — do not fill the neck; top stays visibly empty.
       final liquidRect = Rect.fromLTRB(left + 1.5, top, right - 1.5, bottom);
 
       // Gradient for depth effect
@@ -348,8 +503,6 @@ class LiquidPainter extends CustomPainter {
       // Restore the bottle shape clip so the next segment starts fresh
       canvas.restore();
     }
-
-    canvas.restore();
   }
 
   /// Draws the wobble/wave effect on the liquid surface.
@@ -464,19 +617,9 @@ class LiquidPainter extends CustomPainter {
       ..strokeWidth = 3.0
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8.0);
 
-    final glowPath = Path()
-      ..moveTo(neckLeft, neckTop)
-      ..lineTo(neckLeft, top + 2)
-      ..quadraticBezierTo(neckLeft, top, left + cornerRadius * 0.3, top)
-      ..lineTo(left, top + cornerRadius * 0.3)
-      ..lineTo(left, bottom - cornerRadius)
-      ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
-      ..lineTo(right - cornerRadius, bottom)
-      ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
-      ..lineTo(right, top + cornerRadius * 0.3)
-      ..lineTo(neckRight - cornerRadius * 0.3 + (right - neckRight), top)
-      ..quadraticBezierTo(neckRight, top, neckRight, top + 2)
-      ..lineTo(neckRight, neckTop);
+    final glowPath = _buildBottlePath(
+        left, right, top, bottom, neckLeft, neckRight, neckTop, cornerRadius,
+        right - left, w);
 
     canvas.drawPath(glowPath, glowPaint);
 
@@ -487,24 +630,213 @@ class LiquidPainter extends CustomPainter {
     canvas.drawPath(glowPath, glowPaint);
   }
 
-  /// Draws a checkmark above solved bottles.
-  void _drawSolvedIndicator(Canvas canvas, double w, double h, double neckTop) {
-    final centerX = w / 2;
-    final checkY = neckTop - 12;
-
-    final checkPaint = Paint()
-      ..color = const Color(0xFF69F0AE)
+  /// Draws a hint glow around the bottle (golden/amber color).
+  void _drawHintGlow(
+    Canvas canvas,
+    double left,
+    double right,
+    double top,
+    double bottom,
+    double neckLeft,
+    double neckRight,
+    double neckTop,
+    double cornerRadius,
+    double w,
+    double h,
+  ) {
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.45)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeWidth = 3.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10.0);
 
-    final checkPath = Path()
-      ..moveTo(centerX - 6, checkY)
-      ..lineTo(centerX - 2, checkY + 5)
-      ..lineTo(centerX + 7, checkY - 4);
+    final glowPath = _buildBottlePath(
+        left, right, top, bottom, neckLeft, neckRight, neckTop, cornerRadius,
+        right - left, w);
 
-    canvas.drawPath(checkPath, checkPaint);
+    canvas.drawPath(glowPath, glowPaint);
+
+    // Inner glow
+    glowPaint
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.2)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0);
+    canvas.drawPath(glowPath, glowPaint);
+  }
+
+  /// Draws a bottle cap dropping onto the bottle neck.
+  void _drawBottleCap(Canvas canvas, double w, double neckLeft, double neckRight,
+      double neckTop, double progress) {
+    final centerX = w / 2;
+    final capWidth = (neckRight - neckLeft) + 6;
+    final capHeight = 8.0;
+
+    // Cap drops from 40px above to seated position
+    final startY = neckTop - 40;
+    final endY = neckTop - capHeight + 1;
+    // Use easeOut-like curve for natural drop feel
+    final easedProgress = 1.0 - (1.0 - progress) * (1.0 - progress);
+    final capY = startY + (endY - startY) * easedProgress;
+
+    final capLeft = centerX - capWidth / 2;
+    final capRight = centerX + capWidth / 2;
+
+    // Cap body (wooden cork/cap look)
+    final capPath = Path()
+      ..addRRect(RRect.fromRectAndCorners(
+        Rect.fromLTWH(capLeft, capY, capWidth, capHeight),
+        topLeft: const Radius.circular(3),
+        topRight: const Radius.circular(3),
+        bottomLeft: const Radius.circular(1),
+        bottomRight: const Radius.circular(1),
+      ));
+
+    // Cap gradient (wooden look)
+    final capPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFD4A574), // Light wood
+          const Color(0xFFB8834A), // Medium wood
+          const Color(0xFF8B6914), // Dark wood
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(capLeft, capY, capWidth, capHeight));
+    canvas.drawPath(capPath, capPaint);
+
+    // Cap rim (slightly wider at top)
+    final rimRect = Rect.fromLTWH(capLeft - 2, capY - 1, capWidth + 4, 3);
+    final rimPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFE8C08A),
+          const Color(0xFFC49A5C),
+        ],
+      ).createShader(rimRect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rimRect, const Radius.circular(1.5)),
+      rimPaint,
+    );
+
+    // Cap border
+    final borderPaint = Paint()
+      ..color = const Color(0xFF6B4B1A).withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rimRect, const Radius.circular(1.5)),
+      borderPaint,
+    );
+
+    // Small wood grain lines
+    final grainPaint = Paint()
+      ..color = const Color(0xFF9B7030).withValues(alpha: 0.4)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(capLeft + 3, capY + 2),
+      Offset(capRight - 3, capY + 2),
+      grainPaint,
+    );
+    canvas.drawLine(
+      Offset(capLeft + 5, capY + 5),
+      Offset(capRight - 5, capY + 5),
+      grainPaint,
+    );
+
+    // Highlight on cap
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.2 * progress)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawLine(
+      Offset(capLeft + 2, capY + 1),
+      Offset(capLeft + capWidth * 0.4, capY + 1),
+      highlightPaint,
+    );
+  }
+
+  /// Draws celebration particles (sparkles, stars) around the completed bottle.
+  void _drawCelebration(Canvas canvas, double w, double h, double neckTop,
+      double bottleHeight) {
+    final centerX = w / 2;
+    final centerY = neckTop + bottleHeight * 0.4;
+    final progress = celebrationProgress;
+
+    // Fade out in the second half
+    final opacity = progress < 0.5
+        ? (progress / 0.5).clamp(0.0, 1.0)
+        : ((1.0 - progress) / 0.5).clamp(0.0, 1.0);
+
+    // Particle ring expands outward
+    final maxRadius = w * 0.9;
+    final radius = maxRadius * progress;
+
+    final rng = Random(42); // Fixed seed for consistent pattern
+
+    // Draw sparkle particles
+    for (int i = 0; i < 16; i++) {
+      final angle = (i / 16) * 2 * pi + (i.isEven ? 0.2 : 0.0);
+      final particleRadius = radius + rng.nextDouble() * 8;
+      final px = centerX + cos(angle) * particleRadius;
+      final py = centerY + sin(angle) * particleRadius * 0.7; // Slightly oval
+
+      // Alternate between gold, green, cyan sparkles
+      final colors = [
+        const Color(0xFFFFD700), // Gold
+        const Color(0xFF69F0AE), // Green
+        const Color(0xFF64FFDA), // Cyan
+        const Color(0xFFFF8A65), // Orange
+        const Color(0xFFE040FB), // Purple
+      ];
+      final color = colors[i % colors.length];
+
+      // Star/sparkle shape
+      final size = (3.0 + rng.nextDouble() * 3.0) * opacity;
+      if (size < 0.5) continue;
+
+      final sparkPaint = Paint()
+        ..color = color.withValues(alpha: opacity * 0.9)
+        ..style = PaintingStyle.fill;
+
+      // Draw diamond sparkle
+      final sparkPath = Path()
+        ..moveTo(px, py - size)
+        ..lineTo(px + size * 0.4, py)
+        ..lineTo(px, py + size)
+        ..lineTo(px - size * 0.4, py)
+        ..close();
+      canvas.drawPath(sparkPath, sparkPaint);
+
+      // Cross sparkle
+      final crossPath = Path()
+        ..moveTo(px - size, py)
+        ..lineTo(px, py + size * 0.4)
+        ..lineTo(px + size, py)
+        ..lineTo(px, py - size * 0.4)
+        ..close();
+      canvas.drawPath(crossPath, sparkPaint);
+
+      // Small glow behind sparkle
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: opacity * 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      canvas.drawCircle(Offset(px, py), size * 0.8, glowPaint);
+    }
+
+    // Small circular dots between sparkles
+    for (int i = 0; i < 12; i++) {
+      final angle = (i / 12) * 2 * pi + 0.3;
+      final dotRadius = radius * 0.7 + rng.nextDouble() * 10;
+      final px = centerX + cos(angle) * dotRadius;
+      final py = centerY + sin(angle) * dotRadius * 0.7;
+
+      final dotPaint = Paint()
+        ..color = Colors.white.withValues(alpha: opacity * 0.7)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(px, py), 1.5 * opacity, dotPaint);
+    }
   }
 
   @override
@@ -513,9 +845,13 @@ class LiquidPainter extends CustomPainter {
         oldDelegate.tiltAngle != tiltAngle ||
         oldDelegate.levelProgress != levelProgress ||
         oldDelegate.isSelected != isSelected ||
+        oldDelegate.isHint != isHint ||
         oldDelegate.wobblePhase != wobblePhase ||
         oldDelegate.isSource != isSource ||
         oldDelegate.pourCount != pourCount ||
-        oldDelegate.isSolved != isSolved;
+        oldDelegate.isSolved != isSolved ||
+        oldDelegate.capProgress != capProgress ||
+        oldDelegate.celebrationProgress != celebrationProgress ||
+        oldDelegate.bottleType != bottleType;
   }
 }

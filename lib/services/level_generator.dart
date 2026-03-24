@@ -3,6 +3,22 @@ import 'package:flutter/material.dart';
 import '../models/bottle_model.dart';
 import '../models/game_colors.dart';
 
+enum LevelDifficulty { easy, medium, hard }
+
+class LevelConfig {
+  final int numColors;
+  final int emptyBottles;
+  final int shuffleMultiplier;
+  final LevelDifficulty difficulty;
+
+  const LevelConfig({
+    required this.numColors,
+    required this.emptyBottles,
+    required this.shuffleMultiplier,
+    required this.difficulty,
+  });
+}
+
 /// Generates solvable Water Sort levels.
 ///
 /// Strategy: We start with a SOLVED state (each color in its own bottle),
@@ -23,22 +39,24 @@ class LevelGenerator {
   /// (higher = more mixed). Default matches original behavior.
   static List<BottleModel> generate(
     int numColors, {
+    int emptyBottles = 2,
     int shuffleMultiplier = 3,
   }) {
     assert(numColors >= 2 && numColors <= 12, 'numColors must be between 2 and 12');
+    assert(emptyBottles >= 1 && emptyBottles <= 10, 'emptyBottles must be between 1 and 10');
 
     final colors = GameColors.getColors(numColors);
-    final totalBottles = numColors + 2; // 2 empty bottles for workspace
+    final totalBottles = numColors + emptyBottles;
 
     // Step 1: Create the solved state.
-    // Each color gets its own full bottle, plus 2 empty bottles.
+    // Each color gets its own full bottle, plus empty workspace bottles.
     List<List<Color>> bottleColors = [];
     for (int i = 0; i < numColors; i++) {
       bottleColors.add(List.filled(kMaxBottleCapacity, colors[i], growable: true));
     }
-    // Add 2 empty bottles
-    bottleColors.add([]);
-    bottleColors.add([]);
+    for (int i = 0; i < emptyBottles; i++) {
+      bottleColors.add([]);
+    }
 
     // Step 2: Shuffle by performing random reverse pours.
     // A reverse pour takes from a bottle and puts it in another,
@@ -65,14 +83,80 @@ class LevelGenerator {
 
   /// Returns the number of filled bottles (difficulty) for a given level number.
   static int colorsForLevel(int level) {
-    if (level <= 3) return 4;
-    if (level <= 7) return 5;
-    if (level <= 12) return 6;
-    if (level <= 18) return 7;
-    if (level <= 25) return 8;
-    if (level <= 35) return 9;
-    if (level <= 50) return 10;
-    return 11;
+    return configForLevel(level).numColors;
+  }
+
+  static LevelDifficulty difficultyForLevel(int level) {
+    if (level <= 40) return LevelDifficulty.easy;
+    if (level <= 100) return LevelDifficulty.medium;
+    return LevelDifficulty.hard;
+  }
+
+  static String difficultyLabelForLevel(int level) {
+    switch (difficultyForLevel(level)) {
+      case LevelDifficulty.easy:
+        return 'Easy';
+      case LevelDifficulty.medium:
+        return 'Medium';
+      case LevelDifficulty.hard:
+        return 'Hard';
+    }
+  }
+
+  static LevelConfig configForLevel(int level) {
+    final safeLevel = level.clamp(1, 200);
+    final totalBottles = _totalBottlesForLevel(safeLevel);
+    final difficulty = difficultyForLevel(safeLevel);
+
+    // Keep 2-4 empty bottles as workspace while total bottles scale up.
+    final emptyBottles = switch (difficulty) {
+      LevelDifficulty.easy => 2,
+      LevelDifficulty.medium => 3,
+      LevelDifficulty.hard => 4,
+    };
+
+    final numColors = (totalBottles - emptyBottles).clamp(2, 12);
+    final shuffleMultiplier = switch (difficulty) {
+      LevelDifficulty.easy => 2,
+      LevelDifficulty.medium => 3,
+      LevelDifficulty.hard => 4,
+    };
+
+    return LevelConfig(
+      numColors: numColors,
+      emptyBottles: emptyBottles,
+      shuffleMultiplier: shuffleMultiplier,
+      difficulty: difficulty,
+    );
+  }
+
+  // 10-level progression requested by user:
+  // Easy (1-40): 5, 6, 8, 10
+  // Medium (41-100): 11, 12, 13, 14, 15, 15
+  // Hard (101-200): 15, 16, 17, 17, 18, 18, 19, 19, 20, 20
+  static int _totalBottlesForLevel(int level) {
+    if (level <= 10) return 5;
+    if (level <= 20) return 6;
+    if (level <= 30) return 8;
+    if (level <= 40) return 10;
+
+    if (level <= 50) return 11;
+    if (level <= 60) return 12;
+    if (level <= 70) return 13;
+    if (level <= 80) return 14;
+    if (level <= 90) return 15;
+    if (level <= 100) return 15;
+
+    if (level <= 110) return 15;
+    if (level <= 120) return 16;
+    if (level <= 130) return 17;
+    if (level <= 140) return 17;
+    if (level <= 150) return 18;
+    if (level <= 160) return 18;
+    if (level <= 170) return 19;
+    if (level <= 180) return 19;
+    if (level <= 190) return 20;
+    return 20;
   }
 
   /// Performs a single random valid pour between two bottles.

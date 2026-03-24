@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/bottle_model.dart';
 import '../services/level_generator.dart';
+import '../services/level_progress_service.dart';
 import '../services/analytics_service.dart';
 import 'game_state.dart';
 
@@ -14,63 +15,46 @@ import 'game_state.dart';
 /// - Animation state coordination
 /// - Win detection
 class GameCubit extends Cubit<GameState> {
+  static const int maxLevel = 200;
   final FirebaseAnalyticsService _analytics;
 
-  GameCubit({FirebaseAnalyticsService? analytics})
-      : _analytics = analytics ?? FirebaseAnalyticsService(),
+  GameCubit({
+    FirebaseAnalyticsService? analytics,
+    int initialLevel = 1,
+  })  : _analytics = analytics ?? FirebaseAnalyticsService(),
         super(GameState(
           bottles: const [],
-          level: 1,
+          level: initialLevel.clamp(1, maxLevel),
           levelStartTime: DateTime.now(),
         )) {
-    // Start level 1 immediately
-    startLevel(1);
+    startLevel(initialLevel);
   }
 
   /// Start a new level.
   void startLevel(int level) {
-    final numColors = LevelGenerator.colorsForLevel(level);
-    final bottles = LevelGenerator.generate(numColors);
+    final safeLevel = level.clamp(1, maxLevel);
+    final config = LevelGenerator.configForLevel(safeLevel);
+    final numColors = config.numColors;
+    final bottles = LevelGenerator.generate(
+      numColors,
+      emptyBottles: config.emptyBottles,
+      shuffleMultiplier: config.shuffleMultiplier,
+    );
+    final moveLimit = _moveLimitForLevel(safeLevel, numColors);
 
     emit(GameState(
       bottles: bottles,
-      level: level,
+      level: safeLevel,
+      moveLimit: moveLimit,
       levelStartTime: DateTime.now(),
     ));
 
-    _analytics.logLevelStarted(level: level, numColors: numColors);
+    _analytics.logLevelStarted(level: safeLevel, numColors: numColors);
   }
 
   /// Restart the current level.
   void restartLevel() {
     startLevel(state.level);
-  }
-
-  /// New random solvable layout for the same level (same difficulty).
-  /// Resets moves and undo history. Does not log as a fresh level start.
-  void shuffleLevel() {
-    if (state.status == GameStatus.animating) return;
-    if (state.status == GameStatus.won) return;
-
-    final level = state.level;
-    final numColors = LevelGenerator.colorsForLevel(level);
-    // Slightly more mixing than default [generate] for a distinct reshuffle feel.
-    final bottles = LevelGenerator.generate(numColors, shuffleMultiplier: 5);
-
-    emit(GameState(
-      bottles: bottles,
-      level: level,
-      levelStartTime: DateTime.now(),
-      selectedBottleIndex: -1,
-      status: GameStatus.playing,
-      moveHistory: const [],
-      moveCount: 0,
-      undoCount: 0,
-      animSourceIndex: -1,
-      animDestIndex: -1,
-      animColorCount: 0,
-      animColor: Colors.transparent,
-    ));
   }
 
   /// Handle a bottle tap.
@@ -79,7 +63,10 @@ class GameCubit extends Cubit<GameState> {
   /// If this bottle is already selected → deselect.
   /// If another bottle is selected → attempt to pour.
   void onBottleTap(int bottleIndex) {
-    if (state.status == GameStatus.animating) return;
+    if (state.status != GameStatus.playing) return;
+
+    // Clear hint when player interacts
+    clearHint();
 
     final currentSelected = state.selectedBottleIndex;
 
@@ -178,7 +165,7 @@ class GameCubit extends Cubit<GameState> {
       ),
     ];
 
-    final newState = state.copyWith(
+    final playedState = state.copyWith(
       bottles: newBottles,
       status: GameStatus.playing,
       moveHistory: newHistory,
@@ -190,18 +177,21 @@ class GameCubit extends Cubit<GameState> {
     );
 
     // Check for win
-    if (newState.isWon) {
+    if (playedState.isWon) {
       final duration =
           DateTime.now().difference(state.levelStartTime).inSeconds;
       _analytics.logLevelCompleted(
         level: state.level,
-        moves: newState.moveCount,
-        undosUsed: newState.undoCount,
+        moves: playedState.moveCount,
+        undosUsed: playedState.undoCount,
         durationSeconds: duration,
       );
-      emit(newState.copyWith(status: GameStatus.won));
+      LevelProgressService.saveAfterLevelCompleted(state.level);
+      emit(playedState.copyWith(status: GameStatus.won));
+    } else if (playedState.isOutOfMoves) {
+      emit(playedState.copyWith(status: GameStatus.gameOver));
     } else {
-      emit(newState);
+      emit(playedState);
     }
 
     // Log analytics
@@ -251,8 +241,77 @@ class GameCubit extends Cubit<GameState> {
     );
   }
 
+  /// Show a hint by highlighting a valid pour move.
+  void getHint() {
+    if (state.status != GameStatus.playing) return;
+    if (state.hintsRemaining <= 0) return;
+
+    final bottles = state.bottles;
+
+    // Find the best valid pour move
+    for (int src = 0; src < bottles.length; src++) {
+      if (bottles[src].isEmpty) continue;
+      if (bottles[src].isSolved) continue;
+
+      final sourceColor = bottles[src].topColor!;
+      final pourCount = bottles[src].topColorCount;
+
+      for (int dest = 0; dest < bottles.length; dest++) {
+        if (dest == src) continue;
+        if (bottles[dest].isFull) continue;
+
+        // Destination must be empty or have matching top color
+        if (bottles[dest].isNotEmpty &&
+            bottles[dest].topColor!.toARGB32() != sourceColor.toARGB32()) {
+          continue;
+        }
+
+        final canPour = pourCount.clamp(0, bottles[dest].emptySlots);
+        if (canPour == 0) continue;
+
+        // Skip pouring to an empty bottle if source only has one color
+        // (pointless move)
+        if (bottles[dest].isEmpty && bottles[src].topColorCount == bottles[src].colors.length) {
+          continue;
+        }
+
+        // Found a valid move — highlight it
+        emit(state.copyWith(
+          hintSourceIndex: src,
+          hintDestIndex: dest,
+          hintsRemaining: state.hintsRemaining - 1,
+          selectedBottleIndex: -1,
+        ));
+
+        _analytics.logHintUsed(level: state.level, moveNumber: state.moveCount);
+        return;
+      }
+    }
+  }
+
+  /// Clear the hint highlight.
+  void clearHint() {
+    if (state.hintSourceIndex != -1 || state.hintDestIndex != -1) {
+      emit(state.copyWith(hintSourceIndex: -1, hintDestIndex: -1));
+    }
+  }
+
   /// Advance to the next level.
   void nextLevel() {
-    startLevel(state.level + 1);
+    startLevel((state.level + 1).clamp(1, maxLevel));
+  }
+
+  int _moveLimitForLevel(int level, int numColors) {
+    final config = LevelGenerator.configForLevel(level);
+    final estimatedMinMoves = (config.numColors * 2) + config.emptyBottles;
+
+    // Keep a small difficulty-based buffer above estimated minimum moves.
+    final buffer = switch (config.difficulty) {
+      LevelDifficulty.easy => 1,
+      LevelDifficulty.medium => 2,
+      LevelDifficulty.hard => 3,
+    };
+
+    return estimatedMinMoves + buffer;
   }
 }
