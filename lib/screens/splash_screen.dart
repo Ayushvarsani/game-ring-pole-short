@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
+import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -9,8 +11,10 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _progressController;
+  late AnimationController _pulseController;
+  late AnimationController _floatController;
 
   @override
   void initState() {
@@ -28,60 +32,184 @@ class _SplashScreenState extends State<SplashScreen>
         }
       });
 
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+
     _progressController.forward();
   }
 
   @override
   void dispose() {
     _progressController.dispose();
+    _pulseController.dispose();
+    _floatController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+        child: Stack(
           children: [
-            // Game Visual Icon
-            const Icon(
-              Icons.water_drop_rounded,
-              color: Color(0xFF4FC3F7),
-              size: 100,
-            ),
-            const SizedBox(height: 30),
-            // Title
-            const Text(
-              'WATER SORT PUZZLE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 50),
-            // Progress Bar
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.6,
-              height: 10,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: _progressController.value,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+            // Decorative background orbs
+            ...List.generate(6, (i) {
+              final angle = _floatController.value * 2 * pi + (i * pi / 3);
+              return Positioned(
+                left: size.width * (0.1 + 0.15 * i) + sin(angle + i) * 20,
+                top: size.height * (0.15 + 0.1 * (i % 3)) + cos(angle) * 15,
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (_, __) {
+                    return Container(
+                      width: 60 + i * 15.0,
+                      height: 60 + i * 15.0,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            (i.isEven
+                                    ? AppTheme.accentPrimary
+                                    : AppTheme.accentSecondary)
+                                .withValues(alpha: 0.08 + _pulseController.value * 0.04),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Text(
-              'Loading... ${( _progressController.value * 100).toInt()}%',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 16,
+              );
+            }),
+
+            // Main content
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Animated water drop icon with glow
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (_, child) {
+                      final scale = 1.0 + _pulseController.value * 0.08;
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                AppTheme.accentSecondary.withValues(alpha: 0.3),
+                                AppTheme.accentPrimary.withValues(alpha: 0.1),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.5, 1.0],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.accentSecondary
+                                    .withValues(alpha: 0.2 + _pulseController.value * 0.15),
+                                blurRadius: 30,
+                                spreadRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.water_drop_rounded,
+                            color: AppTheme.accentSecondary,
+                            size: 80,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 36),
+
+                  // Title with gradient-like appearance
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [AppTheme.textPrimary, AppTheme.accentSecondary],
+                    ).createShader(bounds),
+                    child: const Text(
+                      'WATER SORT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'PUZZLE',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 8,
+                    ),
+                  ),
+
+                  const SizedBox(height: 54),
+
+                  // Progress Bar with glow
+                  SizedBox(
+                    width: size.width * 0.55,
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.accentPrimary.withValues(
+                                  alpha: 0.3 * _progressController.value,
+                                ),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: _progressController.value,
+                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppTheme.accentPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Loading... ${(_progressController.value * 100).toInt()}%',
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 13,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

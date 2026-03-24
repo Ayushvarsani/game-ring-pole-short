@@ -9,6 +9,7 @@ import '../models/bottle_type.dart';
 import '../services/coin_service.dart';
 import '../painters/liquid_painter.dart';
 import '../painters/pouring_stream_painter.dart';
+import '../theme/app_theme.dart';
 
 /// The main game screen displaying all bottles and handling animations.
 ///
@@ -236,16 +237,18 @@ class _GameScreenState extends State<GameScreen>
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: const Color(0xFF0A0E21),
-          body: SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context, state),
-                Expanded(
-                  child: _buildBottleGrid(context, state),
-                ),
-                _buildBottomBar(context, state),
-              ],
+          body: Container(
+            decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(context, state),
+                  Expanded(
+                    child: _buildBottleGrid(context, state),
+                  ),
+                  _buildBottomBar(context, state),
+                ],
+              ),
             ),
           ),
         );
@@ -260,8 +263,8 @@ class _GameScreenState extends State<GameScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF0A0E21),
-            const Color(0xFF1A1F3A).withValues(alpha: 0.8),
+            AppTheme.bgDark.withValues(alpha: 0.9),
+            AppTheme.bgLight.withValues(alpha: 0.6),
           ],
         ),
       ),
@@ -529,7 +532,7 @@ class _GameScreenState extends State<GameScreen>
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            const Color(0xFF0A0E21).withValues(alpha: 0.95),
+            AppTheme.bgDark.withValues(alpha: 0.95),
           ],
         ),
       ),
@@ -612,7 +615,7 @@ class _GameScreenState extends State<GameScreen>
             boxShadow: isEnabled
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -693,25 +696,7 @@ class _GameScreenState extends State<GameScreen>
           backgroundColor: Colors.transparent,
           child: Container(
             padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1A1F3A), Color(0xFF0A0E21)],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-                  blurRadius: 30,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
+            decoration: AppTheme.dialogDecoration(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -721,11 +706,11 @@ class _GameScreenState extends State<GameScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
+                      colors: [AppTheme.accentGold, Color(0xFFFFA000)],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                        color: AppTheme.accentGold.withValues(alpha: 0.4),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -741,7 +726,7 @@ class _GameScreenState extends State<GameScreen>
                 const Text(
                   'Level Complete!',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
@@ -753,7 +738,7 @@ class _GameScreenState extends State<GameScreen>
                   children: [
                     Icon(
                       Icons.monetization_on_rounded,
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.95),
+                      color: AppTheme.accentGold.withValues(alpha: 0.95),
                       size: 22,
                     ),
                     const SizedBox(width: 8),
@@ -779,13 +764,11 @@ class _GameScreenState extends State<GameScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6C63FF), Color(0xFF4FC3F7)],
-                      ),
+                      gradient: AppTheme.buttonGradient,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                          color: AppTheme.accentPrimary.withValues(alpha: 0.4),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -823,24 +806,8 @@ class _GameScreenState extends State<GameScreen>
           backgroundColor: Colors.transparent,
           child: Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1A1F3A), Color(0xFF0A0E21)],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFFFF5252).withValues(alpha: 0.35),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF5252).withValues(alpha: 0.25),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                ),
-              ],
+            decoration: AppTheme.dialogDecoration(
+              borderColor: const Color(0xFFFF5252),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -915,9 +882,7 @@ class _GameScreenState extends State<GameScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C63FF), Color(0xFF4FC3F7)],
-                            ),
+                            gradient: AppTheme.buttonGradient,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Text(
@@ -942,21 +907,37 @@ class _GameScreenState extends State<GameScreen>
   }
 }
 
-/// Simple background painter with subtle radial gradient.
+/// Background painter with subtle radial glow effects.
 class _BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // Primary radial glow
     final paint = Paint()
       ..shader = RadialGradient(
-        center: Alignment(0, -0.2),
+        center: const Alignment(0, -0.3),
         radius: 1.2,
         colors: [
-          const Color(0xFF1A1F3A).withValues(alpha: 0.5),
-          const Color(0xFF0A0E21),
+          AppTheme.accentPrimary.withValues(alpha: 0.06),
+          AppTheme.bgMedium.withValues(alpha: 0.3),
+          Colors.transparent,
         ],
+        stops: const [0.0, 0.4, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+
+    // Secondary teal accent glow at bottom
+    final accentPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.3, 0.8),
+        radius: 0.8,
+        colors: [
+          AppTheme.accentSecondary.withValues(alpha: 0.04),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), accentPaint);
   }
 
   @override

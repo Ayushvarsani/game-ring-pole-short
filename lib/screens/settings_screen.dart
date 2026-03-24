@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -6,55 +7,67 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+        child: Column(
+          children: [
+            AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: const Text(
+                'Settings',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              iconTheme: const IconThemeData(color: AppTheme.textPrimary),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.volume_up_rounded,
+                    title: 'Sound Effects',
+                    trailing: Switch(
+                      value: true,
+                      onChanged: (val) {},
+                      activeColor: AppTheme.accentSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSettingsTile(
+                    icon: Icons.vibration_rounded,
+                    title: 'Haptic Feedback',
+                    trailing: Switch(
+                      value: true,
+                      onChanged: (val) {},
+                      activeColor: AppTheme.accentSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSettingsTile(
+                    icon: Icons.star_rate_rounded,
+                    title: 'Rate Us',
+                    trailing: Icon(Icons.arrow_forward_ios_rounded,
+                        color: AppTheme.textSecondary, size: 18),
+                    onTap: () {},
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSettingsTile(
+                    icon: Icons.privacy_tip_rounded,
+                    title: 'Privacy Policy',
+                    trailing: Icon(Icons.arrow_forward_ios_rounded,
+                        color: AppTheme.textSecondary, size: 18),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _buildSettingsTile(
-            icon: Icons.volume_up_rounded,
-            title: 'Sound Effects',
-            trailing: Switch(
-              value: true,
-              onChanged: (val) {},
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsTile(
-            icon: Icons.vibration_rounded,
-            title: 'Haptic Feedback',
-            trailing: Switch(
-              value: true,
-              onChanged: (val) {},
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsTile(
-            icon: Icons.star_rate_rounded,
-            title: 'Rate Us',
-            trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 18),
-            onTap: () {},
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsTile(
-            icon: Icons.privacy_tip_rounded,
-            title: 'Privacy Policy',
-            trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 18),
-            onTap: () {},
-          ),
-        ],
       ),
     );
   }
@@ -71,19 +84,24 @@ class SettingsScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      tileColor: Colors.white.withValues(alpha: 0.08),
+      tileColor: Colors.white.withValues(alpha: 0.06),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
+          gradient: LinearGradient(
+            colors: [
+              AppTheme.accentSecondary.withValues(alpha: 0.25),
+              AppTheme.accentPrimary.withValues(alpha: 0.15),
+            ],
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: const Color(0xFF4FC3F7), size: 24),
+        child: Icon(icon, color: AppTheme.accentSecondary, size: 24),
       ),
       title: Text(
         title,
         style: const TextStyle(
-          color: Colors.white,
+          color: AppTheme.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),

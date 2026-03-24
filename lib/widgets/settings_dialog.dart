@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/settings_cubit.dart';
 import '../bloc/settings_state.dart';
+import '../theme/app_theme.dart';
 
 class SettingsDialog extends StatelessWidget {
   const SettingsDialog({super.key});
@@ -12,25 +13,7 @@ class SettingsDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       child: Container(
         padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1F3A), Color(0xFF0A0E21)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-              blurRadius: 30,
-              spreadRadius: 5,
-            ),
-          ],
-        ),
+        decoration: AppTheme.dialogDecoration(),
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
             return Column(
@@ -41,22 +24,27 @@ class SettingsDialog extends StatelessWidget {
                   child: Row(
                     children: [
                       const SizedBox(width: 40),
-                      const Expanded(
-                        child: Text(
-                          'Settings',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
+                      Expanded(
+                        child: ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [AppTheme.textPrimary, AppTheme.accentSecondary],
+                          ).createShader(bounds),
+                          child: const Text(
+                            'Settings',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
                           ),
                         ),
                       ),
                       IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 26),
+                        icon: const Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 26),
                         onPressed: () {
                           context.read<SettingsCubit>().playClickSound();
                           Navigator.of(context).pop();
@@ -102,7 +90,7 @@ class SettingsDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.1),
@@ -116,16 +104,21 @@ class SettingsDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.accentSecondary.withValues(alpha: 0.25),
+                      AppTheme.accentPrimary.withValues(alpha: 0.15),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: const Color(0xFF4FC3F7), size: 24),
+                child: Icon(icon, color: AppTheme.accentSecondary, size: 24),
               ),
               const SizedBox(width: 16),
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -135,9 +128,9 @@ class SettingsDialog extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF4FC3F7),
-            activeTrackColor: const Color(0xFF4FC3F7).withValues(alpha: 0.3),
-            inactiveThumbColor: Colors.white54,
+            activeColor: AppTheme.accentSecondary,
+            activeTrackColor: AppTheme.accentSecondary.withValues(alpha: 0.3),
+            inactiveThumbColor: AppTheme.textSecondary,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
           ),
         ],

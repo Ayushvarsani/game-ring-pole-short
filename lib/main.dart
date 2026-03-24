@@ -4,6 +4,7 @@ import 'screens/splash_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/settings_cubit.dart';
 import 'bloc/shop_cubit.dart';
+import 'theme/app_theme.dart';
 // import 'services/analytics_service.dart'; // Uncomment when Firebase is configured
 
 void main() async {
@@ -18,7 +19,7 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0A0E21),
+    systemNavigationBarColor: AppTheme.systemNavColor,
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
@@ -47,12 +48,12 @@ class WaterSortApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xFF0A0E21),
+          scaffoldBackgroundColor: AppTheme.bgDark,
           fontFamily: 'Roboto',
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF6C63FF),
-            secondary: Color(0xFF4FC3F7),
-            surface: Color(0xFF1A1F3A),
+            primary: AppTheme.accentPrimary,
+            secondary: AppTheme.accentSecondary,
+            surface: AppTheme.bgLight,
           ),
         ),
         home: const SplashScreen(),

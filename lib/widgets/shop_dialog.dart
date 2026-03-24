@@ -7,6 +7,7 @@ import '../models/bottle_type.dart';
 import '../models/bottle_model.dart';
 import '../models/game_colors.dart';
 import '../painters/liquid_painter.dart';
+import '../theme/app_theme.dart';
 
 class ShopDialog extends StatelessWidget {
   const ShopDialog({super.key});
@@ -18,25 +19,7 @@ class ShopDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1F3A), Color(0xFF0A0E21)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-              blurRadius: 30,
-              spreadRadius: 5,
-            ),
-          ],
-        ),
+        decoration: AppTheme.dialogDecoration(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -45,15 +28,20 @@ class ShopDialog extends StatelessWidget {
               child: Row(
                 children: [
                   const SizedBox(width: 40),
-                  const Expanded(
-                    child: Text(
-                      'Bottle Shop',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
+                  Expanded(
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [AppTheme.textPrimary, AppTheme.accentSecondary],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'Bottle Shop',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -62,7 +50,7 @@ class ShopDialog extends StatelessWidget {
                     constraints:
                         const BoxConstraints.tightFor(width: 40, height: 40),
                     icon: const Icon(Icons.close_rounded,
-                        color: Colors.white70, size: 26),
+                        color: AppTheme.textSecondary, size: 26),
                     onPressed: () {
                       context.read<SettingsCubit>().playClickSound();
                       Navigator.of(context).pop();
@@ -75,32 +63,42 @@ class ShopDialog extends StatelessWidget {
             Text(
               'Choose your bottle style',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppTheme.textMuted,
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 12),
             BlocBuilder<ShopCubit, ShopState>(
               builder: (context, shop) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.monetization_on_rounded,
-                      color:
-                          const Color(0xFFFFD700).withValues(alpha: 0.95),
-                      size: 22,
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppTheme.accentGold.withValues(alpha: 0.2),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${shop.coins} coins',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.monetization_on_rounded,
+                        color: AppTheme.accentGold.withValues(alpha: 0.95),
+                        size: 20,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        '${shop.coins} coins',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -150,27 +148,7 @@ class ShopDialog extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: 90,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF4FC3F7)
-                : Colors.white.withValues(alpha: 0.1),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF4FC3F7).withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
+        decoration: AppTheme.cardDecoration(isSelected: isSelected),
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.topCenter,
@@ -201,8 +179,8 @@ class ShopDialog extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: isSelected
-                            ? const Color(0xFF4FC3F7)
-                            : Colors.white70,
+                            ? AppTheme.accentSecondary
+                            : AppTheme.textSecondary,
                         fontSize: 11,
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
@@ -217,16 +195,16 @@ class ShopDialog extends StatelessWidget {
                             Icons.monetization_on_rounded,
                             size: 12,
                             color: shop.coins >= type.coinPrice
-                                ? const Color(0xFFFFD700)
-                                : Colors.white38,
+                                ? AppTheme.accentGold
+                                : AppTheme.textMuted,
                           ),
                           const SizedBox(width: 2),
                           Text(
                             '${type.coinPrice}',
                             style: TextStyle(
                               color: shop.coins >= type.coinPrice
-                                  ? const Color(0xFFFFD700)
-                                  : Colors.white38,
+                                  ? AppTheme.accentGold
+                                  : AppTheme.textMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -245,12 +223,12 @@ class ShopDialog extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: AppTheme.bgDark.withValues(alpha: 0.7),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.lock_rounded,
-                    color: Colors.white70,
+                    color: AppTheme.textSecondary,
                     size: 14,
                   ),
                 ),
@@ -259,10 +237,22 @@ class ShopDialog extends StatelessWidget {
               Positioned(
                 top: 4,
                 right: 4,
-                child: Icon(
-                  Icons.check_circle_rounded,
-                  color: const Color(0xFF4FC3F7),
-                  size: 18,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accentSecondary.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    color: AppTheme.accentSecondary,
+                    size: 18,
+                  ),
                 ),
               ),
           ],
