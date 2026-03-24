@@ -143,13 +143,6 @@ class ShopDialog extends StatelessWidget {
         context.read<SettingsCubit>().triggerSelectionHaptic();
         final cubit = context.read<ShopCubit>();
         if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
-          final need = type.coinPrice - shop.coins;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Need $need more coins'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
           return;
         }
         cubit.selectOrPurchase(type);
