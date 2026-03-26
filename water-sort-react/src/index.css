@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+:root {
+  /* Theme 1: Default (Alchemist / Classic) */
+  --bg-color: #F5F0E8;
+  --bg-gradient: none;
+  --accent-color: #0d9488; 
+  --card-bg: #FFFFFF;
+  --text-color: #1f2937; 
+  --text-secondary: #4b5563;
+  --button-text: #FFFFFF;
+  --border-color: #e5e7eb;
+  --theme-font: "Inter", sans-serif;
+  --bottle-bg: rgba(255,255,255,0.7);
+  --bottle-border: #9ca3af;
+  --bottle-radius: 2rem;
+  --bottle-top-radius: 0.5rem;
+  --bottle-width: 60px;
+  --bottle-height: 180px;
+  --glow-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --active-glow: 0 0 15px rgba(13, 148, 136, 0.6);
+}
+
+[data-theme='space'] {
+  --bg-color: #0D0D2B;
+  --bg-gradient: linear-gradient(135deg, #0D0D2B 0%, #1A0533 100%);
+  --accent-color: #00FFF7;
+  --card-bg: rgba(255, 255, 255, 0.05); /* dark glassmorphism */
+  --text-color: #ffffff;
+  --text-secondary: #9ca3af;
+  --button-text: #0D0D2B;
+  --border-color: #00FFF7;
+  --theme-font: "Orbitron", sans-serif;
+  --bottle-bg: rgba(0, 255, 247, 0.05);
+  --bottle-border: #64748b;
+  --bottle-radius: 4px;
+  --bottle-top-radius: 4px;
+  --glow-shadow: 0 0 10px rgba(0, 255, 247, 0.3);
+  --active-glow: 0 0 20px rgba(0, 255, 247, 0.8);
+}
+
+[data-theme='jungle'] {
+  --bg-color: #E8F0DC;
+  --bg-gradient: none;
+  --accent-color: #FF6B1A;
+  --card-bg: #f4f3e6; /* parchment feel */
+  --text-color: #3f2a1d; 
+  --text-secondary: #7B4F2E;
+  --button-text: #ffffff;
+  --border-color: #7B4F2E;
+  --theme-font: "Nunito", sans-serif;
+  --bottle-bg: rgba(123, 79, 46, 0.1);
+  --bottle-border: #4d7c0f; /* green bamboo */
+  --bottle-radius: 8px; /* bamboo like */
+  --bottle-top-radius: 8px;
+  --glow-shadow: 0 4px 6px -1px rgba(123, 79, 46, 0.3);
+  --active-glow: 0 0 15px rgba(255, 107, 26, 0.6);
+}
+
+body {
+  background-color: var(--bg-color);
+  background-image: var(--bg-gradient);
+  color: var(--text-color);
+  font-family: var(--theme-font);
+  transition: background-color 0.5s ease, color 0.5s ease;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  /* Add Google Fonts via import in HTML or specify fallback */
+}
+
+/* Base styles to use CSS vars easily with Tailwind */
+.bg-theme-main { background-color: var(--bg-color); background-image: var(--bg-gradient); }
+.bg-theme-card { background-color: var(--card-bg); backdrop-filter: blur(10px); }
+.text-theme-primary { color: var(--text-color); }
+.text-theme-secondary { color: var(--text-secondary); }
+.text-theme-accent { color: var(--accent-color); }
+.bg-theme-accent { background-color: var(--accent-color); color: var(--button-text); }
+.border-theme-accent { border-color: var(--accent-color); }
+.shadow-theme-glow { box-shadow: var(--glow-shadow); }
+.shadow-theme-active { box-shadow: var(--active-glow); border-color: var(--accent-color); }
+
+.theme-font { font-family: var(--theme-font); }
+
+/* Decorative patterns based on theme */
+.bg-theme-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.1;
+  background-size: cover;
+  background-position: center;
+}
+
+[data-theme='classic'] .bg-theme-pattern {
+  background-image: radial-gradient(circle at center, var(--accent-color) 0%, transparent 70%);
+  opacity: 0.05;
+}
+
+[data-theme='space'] .bg-theme-pattern {
+  background-image: radial-gradient(circle at 10% 20%, rgba(255, 0, 200, 0.2) 0%, transparent 50%),
+                    radial-gradient(circle at 90% 80%, rgba(0, 255, 247, 0.2) 0%, transparent 50%);
+  opacity: 0.4;
+}
+
+[data-theme='jungle'] .bg-theme-pattern {
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(77, 124, 15, 0.05) 10px, rgba(77, 124, 15, 0.05) 20px);
+  opacity: 0.8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism switch/toggles */
+.toggle-switch {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: var(--border-color);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s ease;
+}
+.toggle-switch:checked {
+  background: var(--accent-color);
+}
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.toggle-switch:checked::after {
+  transform: translateX(20px);
+}
