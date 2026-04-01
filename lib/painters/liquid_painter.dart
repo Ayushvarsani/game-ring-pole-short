@@ -28,8 +28,14 @@ class LiquidPainter extends CustomPainter {
   /// Whether this bottle is currently the source of a pour.
   final bool isSource;
 
+  /// Whether this bottle is currently the destination of a pour.
+  final bool isDest;
+
   /// Number of segments being poured (used for level calculation).
   final int pourCount;
+
+  /// The color being poured (if isDest is true, to know what color to fill).
+  final Color? pourColor;
 
   /// Whether this bottle is currently selected by the player.
   final bool isSelected;
@@ -57,7 +63,9 @@ class LiquidPainter extends CustomPainter {
     this.tiltAngle = 0.0,
     this.levelProgress = 0.0,
     this.isSource = false,
+    this.isDest = false,
     this.pourCount = 0,
+    this.pourColor,
     this.isSelected = false,
     this.isHint = false,
     this.wobblePhase = 0.0,
@@ -349,15 +357,22 @@ class LiquidPainter extends CustomPainter {
     double w,
     double h,
   ) {
-    if (bottle.isEmpty) return;
+    if (bottle.isEmpty && !(isDest && pourCount > 0)) return;
 
-    final colors = bottle.colors;
+    final colors = List<Color>.from(bottle.colors);
+    if (isDest && pourCount > 0 && pourColor != null) {
+      for (int i = 0; i < pourCount; i++) {
+        colors.add(pourColor!);
+      }
+    }
     final segmentCount = colors.length;
 
     // ── Calculate effective fill ──
-    double effectiveSegments = segmentCount.toDouble();
+    double effectiveSegments = isDest ? bottle.colors.length.toDouble() : segmentCount.toDouble();
     if (isSource && pourCount > 0) {
-      effectiveSegments = segmentCount - (pourCount * levelProgress);
+      effectiveSegments -= (pourCount * levelProgress);
+    } else if (isDest && pourCount > 0) {
+      effectiveSegments += (pourCount * levelProgress);
     }
 
     // Create a clipping region for the bottle's interior (inset from outer path)
@@ -463,7 +478,7 @@ class LiquidPainter extends CustomPainter {
       canvas.restore(); // Restore local clip state
 
       // Draw the wobble surface in World Space exactly at segTop
-      if (i == segmentCount - 1 || (isSource && i == segmentCount - 1)) {
+      if (i == segmentCount - 1 || (isSource && i == bottle.colors.length - 1) || (isDest && i == segmentCount - 1)) {
         canvas.save();
         if (tiltAngle != 0.0) {
           final pivotX = tiltAngle > 0 ? neckRight : neckLeft;
@@ -521,7 +536,7 @@ class LiquidPainter extends CustomPainter {
   ) {
     final width = right - left;
     // Wave amplitude: small for idle, larger during pour
-    final amplitude = isSource ? 3.0 : 1.5;
+    final amplitude = (isSource || isDest) ? 3.0 : 1.5;
 
     // Frequency: 2 full waves across the surface width
     // ω = 2π * numWaves / width

@@ -418,6 +418,7 @@ class _GameScreenState extends State<GameScreen>
     final bottle = state.bottles[index];
     final isSelected = state.selectedBottleIndex == index;
     final isSource = _isAnimating && state.animSourceIndex == index;
+    final isDest = _isAnimating && state.animDestIndex == index;
     final isHint = state.hintSourceIndex == index || state.hintDestIndex == index;
     final isHighlighted = isSelected;
 
@@ -441,9 +442,9 @@ class _GameScreenState extends State<GameScreen>
       translateY = targetY * _tiltAnimation.value;
     }
 
-    // ── Calculate level progress for source bottle ──
+    // ── Calculate level progress ──
     double levelProgress = 0.0;
-    if (isSource && _isAnimating) {
+    if ((isSource || isDest) && _isAnimating) {
       levelProgress = _levelAnimation.value;
     }
 
@@ -477,7 +478,9 @@ class _GameScreenState extends State<GameScreen>
               tiltAngle: tiltAngle,
               levelProgress: levelProgress,
               isSource: isSource,
-              pourCount: isSource ? state.animColorCount : 0,
+              isDest: isDest,
+              pourCount: (isSource || isDest) ? state.animColorCount : 0,
+              pourColor: isDest ? state.animColor : null,
               isSelected: isHighlighted,
               isHint: isHint,
               wobblePhase: wobblePhase,
@@ -513,6 +516,15 @@ class _GameScreenState extends State<GameScreen>
       final state = context.read<GameCubit>().state;
       final direction = state.animDestIndex > index ? 1.0 : -1.0;
       final xOffset = direction > 0 ? 37.0 : 19.0; // matching neckRight and neckLeft roughly
+      
+      final destPos = _getBottleBasePosition(state.animDestIndex);
+      if (_sourcePos != Offset.zero && destPos != Offset.zero) {
+        final targetX = (destPos.dx - _sourcePos.dx) - (direction * 15);
+        final targetY = (destPos.dy - _sourcePos.dy) - 45;
+        final translateX = targetX * _tiltAnimation.value;
+        final translateY = targetY * _tiltAnimation.value;
+        return Offset(pos.dx + xOffset + translateX, pos.dy + 15.0 + translateY);
+      }
       return Offset(pos.dx + xOffset, pos.dy + 15.0);
     } else {
       return Offset(
