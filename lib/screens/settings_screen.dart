@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/shop_cubit.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -8,7 +10,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+        decoration: BoxDecoration(gradient: context.watch<ShopCubit>().state.selectedTheme.gradient),
         child: Column(
           children: [
             AppBar(
@@ -34,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
                     trailing: Switch(
                       value: true,
                       onChanged: (val) {},
-                      activeColor: AppTheme.accentSecondary,
+                      activeThumbColor: AppTheme.accentSecondary,
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -44,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
                     trailing: Switch(
                       value: true,
                       onChanged: (val) {},
-                      activeColor: AppTheme.accentSecondary,
+                      activeThumbColor: AppTheme.accentSecondary,
                     ),
                   ),
                   const SizedBox(height: 15),

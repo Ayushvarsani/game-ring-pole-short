@@ -6,6 +6,7 @@ import '../bloc/game_state.dart';
 import '../bloc/settings_cubit.dart';
 import '../bloc/shop_cubit.dart';
 import '../models/bottle_type.dart';
+import '../models/fill_type.dart';
 import '../services/coin_service.dart';
 import '../painters/liquid_painter.dart';
 import '../painters/pouring_stream_painter.dart';
@@ -238,7 +239,7 @@ class _GameScreenState extends State<GameScreen>
       builder: (context, state) {
         return Scaffold(
           body: Container(
-            decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+            decoration: BoxDecoration(gradient: context.watch<ShopCubit>().state.selectedTheme.gradient),
             child: SafeArea(
               child: Column(
                 children: [
@@ -378,7 +379,7 @@ class _GameScreenState extends State<GameScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: row.map((idx) {
-                            return _buildBottleWidget(context, state, idx, bottleType: context.read<ShopCubit>().state.selectedType);
+                            return _buildBottleWidget(context, state, idx, bottleType: context.read<ShopCubit>().state.selectedType, fillType: context.read<ShopCubit>().state.selectedFill);
                           }).toList(),
                         ),
                       );
@@ -400,6 +401,7 @@ class _GameScreenState extends State<GameScreen>
                       color: state.animColor,
                       progress: _streamAnimation.value,
                       flowPhase: _wobbleController.value * 2 * pi,
+                      fillType: context.read<ShopCubit>().state.selectedFill,
                     ),
                   ),
                 ),
@@ -411,7 +413,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   /// Builds a single bottle widget with its CustomPainter.
-  Widget _buildBottleWidget(BuildContext context, GameState state, int index, {BottleType bottleType = BottleType.classic}) {
+  Widget _buildBottleWidget(BuildContext context, GameState state, int index, {BottleType bottleType = BottleType.classic, FillType fillType = FillType.liquid}) {
     // Ensure we have a GlobalKey for position tracking
     _bottleKeys.putIfAbsent(index, () => GlobalKey());
 
@@ -492,6 +494,7 @@ class _GameScreenState extends State<GameScreen>
                   ? _celebrationController.value
                   : 0.0,
               bottleType: bottleType,
+              fillType: fillType,
             ),
             size: const Size(56, 150),
           ),

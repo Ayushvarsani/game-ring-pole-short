@@ -5,12 +5,20 @@ import '../bloc/shop_state.dart';
 import '../bloc/settings_cubit.dart';
 import '../models/bottle_type.dart';
 import '../models/bottle_model.dart';
+import '../models/fill_type.dart';
 import '../models/game_colors.dart';
 import '../painters/liquid_painter.dart';
 import '../theme/app_theme.dart';
 
-class ShopDialog extends StatelessWidget {
+class ShopDialog extends StatefulWidget {
   const ShopDialog({super.key});
+
+  @override
+  State<ShopDialog> createState() => _ShopDialogState();
+}
+
+class _ShopDialogState extends State<ShopDialog> {
+  int _selectedTabIndex = 0; // 0 for Bottles, 1 for Contents
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +42,7 @@ class ShopDialog extends StatelessWidget {
                         colors: [AppTheme.textPrimary, AppTheme.accentSecondary],
                       ).createShader(bounds),
                       child: const Text(
-                        'Bottle Shop',
+                        'Shop',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
@@ -47,24 +55,14 @@ class ShopDialog extends StatelessWidget {
                   ),
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 40, height: 40),
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppTheme.textSecondary, size: 26),
+                    constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+                    icon: const Icon(Icons.close_rounded, color: AppTheme.textSecondary, size: 26),
                     onPressed: () {
                       context.read<SettingsCubit>().playClickSound();
                       Navigator.of(context).pop();
                     },
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Choose your bottle style',
-              style: TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 13,
               ),
             ),
             const SizedBox(height: 12),
@@ -102,16 +100,28 @@ class ShopDialog extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 16),
+            // Tab control
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildTabButton('Bottles', 0),
+                const SizedBox(width: 12),
+                _buildTabButton('Contents', 1),
+              ],
+            ),
             const SizedBox(height: 20),
             BlocBuilder<ShopCubit, ShopState>(
               builder: (context, shop) {
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 16,
-                  alignment: WrapAlignment.center,
-                  children: BottleType.values.map((type) {
-                    return _buildBottleCard(context, type, shop);
-                  }).toList(),
+                return SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.center,
+                    children: _selectedTabIndex == 0
+                        ? BottleType.values.map((type) => _buildBottleCard(context, type, shop)).toList()
+                        : FillType.values.map((type) => _buildFillCard(context, type, shop)).toList(),
+                  ),
                 );
               },
             ),
@@ -121,18 +131,39 @@ class ShopDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildBottleCard(
-      BuildContext context, BottleType type, ShopState shop) {
+  Widget _buildTabButton(String title, int index) {
+    final isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        setState(() => _selectedTabIndex = index);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.accentSecondary.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.accentSecondary : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? AppTheme.accentSecondary : AppTheme.textMuted,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottleCard(BuildContext context, BottleType type, ShopState shop) {
     final isSelected = type == shop.selectedType;
     final unlocked = shop.isUnlocked(type);
     const previewBottle = BottleModel(
       id: 0,
-      colors: [
-        GameColors.blue,
-        GameColors.blue,
-        GameColors.green,
-        GameColors.red,
-      ],
+      colors: [GameColors.blue, GameColors.blue, GameColors.green, GameColors.red],
     );
 
     return GestureDetector(
@@ -154,8 +185,7 @@ class ShopDialog extends StatelessWidget {
           alignment: Alignment.topCenter,
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               child: SizedBox(
                 width: double.infinity,
                 child: Column(
@@ -169,6 +199,7 @@ class ShopDialog extends StatelessWidget {
                         painter: LiquidPainter(
                           bottle: previewBottle,
                           bottleType: type,
+                          fillType: shop.selectedFill,
                         ),
                         size: const Size(45, 110),
                       ),
@@ -178,84 +209,158 @@ class ShopDialog extends StatelessWidget {
                       type.displayName,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: isSelected
-                            ? AppTheme.accentSecondary
-                            : AppTheme.textSecondary,
+                        color: isSelected ? AppTheme.accentSecondary : AppTheme.textSecondary,
                         fontSize: 11,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                       ),
                     ),
-                    if (!unlocked && type.coinPrice > 0) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.monetization_on_rounded,
-                            size: 12,
-                            color: shop.coins >= type.coinPrice
-                                ? AppTheme.accentGold
-                                : AppTheme.textMuted,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${type.coinPrice}',
-                            style: TextStyle(
-                              color: shop.coins >= type.coinPrice
-                                  ? AppTheme.accentGold
-                                  : AppTheme.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    if (!unlocked && type.coinPrice > 0)
+                      _buildPriceTag(type.coinPrice, shop.coins),
                   ],
                 ),
               ),
             ),
-            if (!unlocked && type.coinPrice > 0)
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgDark.withValues(alpha: 0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.lock_rounded,
-                    color: AppTheme.textSecondary,
-                    size: 14,
-                  ),
-                ),
-              ),
-            if (isSelected)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentSecondary.withValues(alpha: 0.4),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.check_circle_rounded,
-                    color: AppTheme.accentSecondary,
-                    size: 18,
-                  ),
-                ),
-              ),
+            if (!unlocked && type.coinPrice > 0) _buildLockIcon(),
+            if (isSelected) _buildCheckIcon(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFillCard(BuildContext context, FillType type, ShopState shop) {
+    final isSelected = type == shop.selectedFill;
+    final unlocked = shop.isFillUnlocked(type);
+    const previewBottle = BottleModel(
+      id: 0,
+      colors: [GameColors.purple],
+    );
+
+    return GestureDetector(
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        context.read<SettingsCubit>().triggerSelectionHaptic();
+        final cubit = context.read<ShopCubit>();
+        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
+          return;
+        }
+        cubit.selectOrPurchaseFill(type);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 90,
+        decoration: AppTheme.cardDecoration(isSelected: isSelected),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topCenter,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 45,
+                      height: 110,
+                      child: CustomPaint(
+                        painter: LiquidPainter(
+                          bottle: previewBottle,
+                          bottleType: shop.selectedType,
+                          fillType: type,
+                        ),
+                        size: const Size(45, 110),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      type.displayName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isSelected ? AppTheme.accentSecondary : AppTheme.textSecondary,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                    if (!unlocked && type.coinPrice > 0)
+                      _buildPriceTag(type.coinPrice, shop.coins),
+                  ],
+                ),
+              ),
+            ),
+            if (!unlocked && type.coinPrice > 0) _buildLockIcon(),
+            if (isSelected) _buildCheckIcon(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceTag(int price, int coins) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.monetization_on_rounded,
+              size: 12,
+              color: coins >= price ? AppTheme.accentGold : AppTheme.textMuted,
+            ),
+            const SizedBox(width: 2),
+            Text(
+              '$price',
+              style: TextStyle(
+                color: coins >= price ? AppTheme.accentGold : AppTheme.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildLockIcon() {
+    return Positioned(
+      top: 8,
+      left: 8,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppTheme.bgDark.withValues(alpha: 0.7),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.lock_rounded,
+          color: AppTheme.textSecondary,
+          size: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckIcon() {
+    return Positioned(
+      top: 4,
+      right: 4,
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.accentSecondary.withValues(alpha: 0.4),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.check_circle_rounded,
+          color: AppTheme.accentSecondary,
+          size: 18,
         ),
       ),
     );

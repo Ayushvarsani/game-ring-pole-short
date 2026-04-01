@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/shop_cubit.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
@@ -60,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+        decoration: BoxDecoration(gradient: context.watch<ShopCubit>().state.selectedTheme.gradient),
         child: Stack(
           children: [
             // Decorative background orbs
@@ -71,7 +73,7 @@ class _SplashScreenState extends State<SplashScreen>
                 top: size.height * (0.15 + 0.1 * (i % 3)) + cos(angle) * 15,
                 child: AnimatedBuilder(
                   animation: _pulseController,
-                  builder: (_, __) {
+                  builder: (_, _) {
                     return Container(
                       width: 60 + i * 15.0,
                       height: 60 + i * 15.0,

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/game_colors.dart';
+import '../models/fill_type.dart';
 
 /// Paints the liquid stream flowing from source bottle to destination bottle.
 ///
@@ -22,12 +23,16 @@ class PouringStreamPainter extends CustomPainter {
   /// Time-based phase for flow animation.
   final double flowPhase;
 
+  /// The user-selected fill type.
+  final FillType fillType;
+
   PouringStreamPainter({
     required this.start,
     required this.end,
     required this.color,
     required this.progress,
     required this.flowPhase,
+    this.fillType = FillType.liquid,
   });
 
   @override
@@ -45,6 +50,51 @@ class PouringStreamPainter extends CustomPainter {
     final arcHeight = min(distance * 0.4, 80.0);
     final controlY = min(start.dy, end.dy) - arcHeight;
     final controlPoint = Offset(midX, controlY);
+
+    if (fillType != FillType.liquid) {
+      final numObjects = 2; // 2 items flowing back-to-back
+      for (int k = 0; k < numObjects; k++) {
+        // Make 't' loop continuously from 0 to 1 based on flowPhase
+        final t = ((flowPhase * 1.5 + k * (2 * pi / numObjects)) / (2 * pi)) % 1.0;
+        
+        final opacity = progress < 0.2 ? (progress / 0.2).clamp(0.0, 1.0) : (progress > 0.8 ? ((1.0 - progress) / 0.2).clamp(0.0, 1.0) : 1.0);
+        if (opacity <= 0) continue;
+
+        final oneMinusT = 1 - t;
+        final cx = oneMinusT * oneMinusT * start.dx +
+            2 * oneMinusT * t * controlPoint.dx +
+            t * t * end.dx;
+        final cy = oneMinusT * oneMinusT * start.dy +
+            2 * oneMinusT * t * controlPoint.dy +
+            t * t * end.dy;
+
+        final baseR = 10.0;
+
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.scale(opacity, opacity);
+        
+        if (fillType == FillType.balls) {
+          final paint = Paint()
+            ..shader = RadialGradient(
+              colors: [GameColors.lighten(color, 0.2), color, GameColors.darken(color, 0.2)],
+              stops: const [0.0, 0.5, 1.0],
+              center: const Alignment(-0.3, -0.3),
+            ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseR));
+          canvas.drawCircle(Offset.zero, baseR, paint);
+        } else if (fillType == FillType.blocks) {
+          final rect = Rect.fromCenter(center: Offset.zero, width: baseR * 2, height: baseR * 2);
+          final paint = Paint()..color = color..style = PaintingStyle.fill;
+          canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), paint);
+        } else if (fillType == FillType.stars) {
+          _drawStar(canvas, 0, 0, baseR, color);
+        } else if (fillType == FillType.diamonds) {
+          _drawDiamond(canvas, 0, 0, baseR, color);
+        }
+        canvas.restore();
+      }
+      return;
+    }
 
     // ── Draw the stream with varying width ──
     // The stream has a main body and a drip at the end.
@@ -174,6 +224,38 @@ class PouringStreamPainter extends CustomPainter {
         oldDelegate.flowPhase != flowPhase ||
         oldDelegate.start != start ||
         oldDelegate.end != end ||
+        oldDelegate.fillType != fillType ||
         oldDelegate.color != color;
+  }
+
+  void _drawStar(Canvas canvas, double cx, double cy, double radius, Color color) {
+    final path = Path();
+    for (int i = 0; i < 5; i++) {
+        final outerAngle = (i * 4 * pi / 5) - pi / 2;
+        final x = cx + cos(outerAngle) * radius;
+        final y = cy + sin(outerAngle) * radius;
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+    }
+    path.close();
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawDiamond(Canvas canvas, double cx, double cy, double radius, Color color) {
+    final path = Path()
+      ..moveTo(cx, cy - radius)
+      ..lineTo(cx + radius * 0.8, cy)
+      ..lineTo(cx, cy + radius)
+      ..lineTo(cx - radius * 0.8, cy)
+      ..close();
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [GameColors.lighten(color, 0.1), GameColors.darken(color, 0.1)],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
+    canvas.drawPath(path, paint);
   }
 }

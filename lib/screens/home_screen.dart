@@ -12,8 +12,8 @@ import '../models/game_colors.dart';
 import '../painters/liquid_painter.dart';
 import '../theme/app_theme.dart';
 import 'game_screen.dart';
+import 'shop_screen.dart';
 import '../widgets/settings_dialog.dart';
-import '../widgets/shop_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,7 +83,9 @@ class _HomeScreenState extends State<HomeScreen>
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+        decoration: BoxDecoration(
+          gradient: context.watch<ShopCubit>().state.selectedTheme.gradient,
+        ),
         child: Stack(
           children: [
             // Background decorative orbs
@@ -173,9 +175,10 @@ class _HomeScreenState extends State<HomeScreen>
                             _buildIconBtn(Icons.store_rounded, () {
                               context.read<SettingsCubit>().playClickSound();
                               context.read<SettingsCubit>().triggerLightHaptic();
-                              showDialog(
-                                context: context,
-                                builder: (context) => const ShopDialog(),
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ShopScreen(),
+                                ),
                               );
                             }),
                             _buildIconBtn(Icons.settings_rounded, () {
@@ -200,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen>
                         BlocBuilder<ShopCubit, ShopState>(
                           builder: (context, shop) {
                             final selectedBottleType = shop.selectedType;
+                            final selectedFillType = shop.selectedFill;
                             return AnimatedBuilder(
                               animation: _wobbleController,
                               builder: (context, child) {
@@ -219,6 +223,7 @@ class _HomeScreenState extends State<HomeScreen>
                                             bottle: bottle,
                                             wobblePhase: wobblePhase,
                                             bottleType: selectedBottleType,
+                                            fillType: selectedFillType,
                                           ),
                                           size: const Size(50, 130),
                                         ),

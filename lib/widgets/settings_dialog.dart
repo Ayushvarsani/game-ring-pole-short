@@ -128,7 +128,7 @@ class SettingsDialog extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppTheme.accentSecondary,
+            activeThumbColor: AppTheme.accentSecondary,
             activeTrackColor: AppTheme.accentSecondary.withValues(alpha: 0.3),
             inactiveThumbColor: AppTheme.textSecondary,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.1),

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/bottle_model.dart';
 import '../models/bottle_type.dart';
+import '../models/fill_type.dart';
 import '../models/game_colors.dart';
 
 /// CustomPainter that renders a single bottle with liquid.
@@ -58,6 +59,9 @@ class LiquidPainter extends CustomPainter {
   /// The bottle shape type from the shop.
   final BottleType bottleType;
 
+  /// The content type inside the bottle.
+  final FillType fillType;
+
   LiquidPainter({
     required this.bottle,
     this.tiltAngle = 0.0,
@@ -73,6 +77,7 @@ class LiquidPainter extends CustomPainter {
     this.capProgress = 0.0,
     this.celebrationProgress = 0.0,
     this.bottleType = BottleType.classic,
+    this.fillType = FillType.liquid,
   });
 
   @override
@@ -438,47 +443,91 @@ class LiquidPainter extends CustomPainter {
       canvas.save();
 
       // Clip to the World Y band for this segment
-      if (tiltAngle != 0.0) {
-        final pivotX = tiltAngle > 0 ? neckRight : neckLeft;
-        final pivotY = neckTop;
-        canvas.translate(pivotX, pivotY);
-        canvas.rotate(-tiltAngle);
-        canvas.translate(-pivotX, -pivotY);
-        
-        canvas.clipRect(Rect.fromLTRB(worldBounds.left - 20, segTop, worldBounds.right + 20, currentWorldBottom));
+      if (fillType == FillType.liquid) {
+        if (tiltAngle != 0.0) {
+          final pivotX = tiltAngle > 0 ? neckRight : neckLeft;
+          final pivotY = neckTop;
+          canvas.translate(pivotX, pivotY);
+          canvas.rotate(-tiltAngle);
+          canvas.translate(-pivotX, -pivotY);
+          
+          canvas.clipRect(Rect.fromLTRB(worldBounds.left - 20, segTop, worldBounds.right + 20, currentWorldBottom));
 
-        canvas.translate(pivotX, pivotY);
-        canvas.rotate(tiltAngle);
-        canvas.translate(-pivotX, -pivotY);
+          canvas.translate(pivotX, pivotY);
+          canvas.rotate(tiltAngle);
+          canvas.translate(-pivotX, -pivotY);
+        } else {
+          canvas.clipRect(Rect.fromLTRB(left - 20, segTop, right + 20, currentWorldBottom));
+        }
+
+        // Body only — do not fill the neck; top stays visibly empty.
+        final liquidRect = Rect.fromLTRB(left + 1.5, top, right - 1.5, bottom);
+
+        // Gradient for depth effect
+        final gradient = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            GameColors.darken(color, 0.12),
+            color,
+            GameColors.lighten(color, 0.08),
+            color,
+            GameColors.darken(color, 0.1),
+          ],
+          stops: const [0.0, 0.2, 0.45, 0.7, 1.0],
+        );
+
+        final liquidPaint = Paint()
+          ..shader = gradient.createShader(liquidRect)
+          ..style = PaintingStyle.fill;
+        canvas.drawRect(liquidRect, liquidPaint);
       } else {
-        canvas.clipRect(Rect.fromLTRB(left - 20, segTop, right + 20, currentWorldBottom));
+        // Draw non-liquid shapes correctly positioned within their local segment.
+        final localSegHeight = (bottom - top) / kMaxBottleCapacity;
+        final localSegBottom = bottom - (i * localSegHeight);
+        final localSegTop = localSegBottom - localSegHeight;
+        final localCy = (localSegTop + localSegBottom) / 2;
+        final cx = (left + right) / 2;
+        
+        double fraction = 1.0;
+        final fullSegments = effectiveSegments.floor();
+        if (i == fullSegments) {
+          fraction = effectiveSegments - fullSegments;
+        }
+        final scaleFactor = sin(fraction * pi / 2);
+        final r = min((right - left) / 2, localSegHeight / 2) * 0.85 * scaleFactor;
+
+        if (r > 0.5) {
+          if (fillType == FillType.balls) {
+            final paint = Paint()
+              ..shader = RadialGradient(
+                colors: [GameColors.lighten(color, 0.2), color, GameColors.darken(color, 0.2)],
+                stops: const [0.0, 0.5, 1.0],
+                center: const Alignment(-0.3, -0.3),
+              ).createShader(Rect.fromCircle(center: Offset(cx, localCy), radius: r));
+            canvas.drawCircle(Offset(cx, localCy), r, paint);
+          } else if (fillType == FillType.blocks) {
+            final rect = Rect.fromCenter(center: Offset(cx, localCy), width: r * 2, height: r * 2);
+            final paint = Paint()
+              ..color = color
+              ..style = PaintingStyle.fill;
+            canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), paint);
+            final borderPaint = Paint()
+              ..color = GameColors.darken(color, 0.2)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2;
+            canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), borderPaint);
+          } else if (fillType == FillType.stars) {
+            _drawStar(canvas, cx, localCy, r, color);
+          } else if (fillType == FillType.diamonds) {
+            _drawDiamond(canvas, cx, localCy, r, color);
+          }
+        }
       }
-
-      // Body only — do not fill the neck; top stays visibly empty.
-      final liquidRect = Rect.fromLTRB(left + 1.5, top, right - 1.5, bottom);
-
-      // Gradient for depth effect
-      final gradient = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          GameColors.darken(color, 0.12),
-          color,
-          GameColors.lighten(color, 0.08),
-          color,
-          GameColors.darken(color, 0.1),
-        ],
-        stops: const [0.0, 0.2, 0.45, 0.7, 1.0],
-      );
-
-      final liquidPaint = Paint()
-        ..shader = gradient.createShader(liquidRect)
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(liquidRect, liquidPaint);
       canvas.restore(); // Restore local clip state
 
       // Draw the wobble surface in World Space exactly at segTop
-      if (i == segmentCount - 1 || (isSource && i == bottle.colors.length - 1) || (isDest && i == segmentCount - 1)) {
+      if (fillType == FillType.liquid && (i == segmentCount - 1 || (isSource && i == bottle.colors.length - 1) || (isDest && i == segmentCount - 1))) {
         canvas.save();
         if (tiltAngle != 0.0) {
           final pivotX = tiltAngle > 0 ? neckRight : neckLeft;
@@ -518,6 +567,38 @@ class LiquidPainter extends CustomPainter {
       // Restore the bottle shape clip so the next segment starts fresh
       canvas.restore();
     }
+  }
+
+  void _drawStar(Canvas canvas, double cx, double cy, double radius, Color color) {
+    final path = Path();
+    final halfRadius = radius / 2;
+    for (int i = 0; i < 5; i++) {
+        final outerAngle = (i * 4 * pi / 5) - pi / 2;
+        final x = cx + cos(outerAngle) * radius;
+        final y = cy + sin(outerAngle) * radius;
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+    }
+    path.close();
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawDiamond(Canvas canvas, double cx, double cy, double radius, Color color) {
+    final path = Path()
+      ..moveTo(cx, cy - radius)
+      ..lineTo(cx + radius * 0.8, cy)
+      ..lineTo(cx, cy + radius)
+      ..lineTo(cx - radius * 0.8, cy)
+      ..close();
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [GameColors.lighten(color, 0.1), GameColors.darken(color, 0.1)],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
+    canvas.drawPath(path, paint);
   }
 
   /// Draws the wobble/wave effect on the liquid surface.
