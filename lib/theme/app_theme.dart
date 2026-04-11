@@ -25,9 +25,15 @@ class AppTheme {
   static const double radiusMedium = 24;
   static const double radiusLarge = 30;
 
+  static const double space8 = 8;
+  static const double space12 = 12;
+  static const double space16 = 16;
+  static const double space20 = 20;
+  static const double space24 = 24;
+
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(
     horizontal: 20,
-    vertical: 12,
+    vertical: 16,
   );
 
   static const LinearGradient bgGradient = LinearGradient(
@@ -58,6 +64,13 @@ class AppTheme {
     stops: [0.0, 0.35, 1.0],
   );
 
+  static const LinearGradient glassBaseGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0x66FFFFFF), Color(0x2BFFFFFF), Color(0x180B1527)],
+    stops: [0.0, 0.28, 1.0],
+  );
+
   static ThemeData get materialTheme {
     return ThemeData(
       brightness: Brightness.dark,
@@ -79,47 +92,116 @@ class AppTheme {
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: textPrimary,
-          fontSize: 34,
+          fontSize: 32,
           fontWeight: FontWeight.w800,
-          height: 1.05,
-          letterSpacing: -0.6,
+          height: 1.04,
+          letterSpacing: -0.45,
         ),
         headlineMedium: TextStyle(
           color: textPrimary,
           fontSize: 28,
           fontWeight: FontWeight.w800,
           height: 1.1,
-          letterSpacing: -0.3,
+          letterSpacing: -0.2,
         ),
         titleLarge: TextStyle(
           color: textPrimary,
-          fontSize: 22,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.24,
         ),
         bodyLarge: TextStyle(
           color: textSecondary,
-          fontSize: 16,
+          fontSize: 17,
           fontWeight: FontWeight.w500,
           height: 1.45,
+          letterSpacing: 0.14,
         ),
         bodyMedium: TextStyle(
           color: textSecondary,
           fontSize: 14,
           fontWeight: FontWeight.w500,
           height: 1.4,
+          letterSpacing: 0.18,
         ),
         labelLarge: TextStyle(
           color: textPrimary,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
+          letterSpacing: 0.5,
         ),
       ),
+    );
+  }
+
+  static LinearGradient accentGradient(Color accent, {double intensity = 1.0}) {
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color.lerp(accent, Colors.white, 0.22 * intensity)!,
+        accent,
+        Color.lerp(accent, bgDark, 0.36)!,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+  }
+
+  static List<BoxShadow> premiumShadows(
+    Color tint, {
+    bool emphasized = false,
+    bool muted = false,
+  }) {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: muted ? 0.16 : 0.3),
+        blurRadius: emphasized ? 34 : 24,
+        spreadRadius: emphasized ? -12 : -10,
+        offset: const Offset(0, 16),
+      ),
+      BoxShadow(
+        color: tint.withValues(alpha: emphasized ? 0.22 : 0.1),
+        blurRadius: emphasized ? 30 : 18,
+        spreadRadius: emphasized ? -10 : -12,
+        offset: const Offset(0, 10),
+      ),
+    ];
+  }
+
+  static BoxDecoration glassDecoration({
+    Color? tint,
+    Color? borderColor,
+    double radius = radiusMedium,
+    bool highlighted = false,
+    bool muted = false,
+  }) {
+    final accent = tint ?? accentPrimary;
+    final surface = muted ? bgMedium : bgCard;
+    final blend = highlighted ? 0.2 : 0.12;
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          _blend(surface, Colors.white, 0.18),
+          _blend(surface, accent, blend),
+          _blend(surface, bgDark, 0.14),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(
+        color:
+            borderColor ??
+            Colors.white.withValues(alpha: highlighted ? 0.22 : 0.12),
+        width: highlighted ? 1.2 : 1.0,
+      ),
+      boxShadow: premiumShadows(accent, emphasized: highlighted, muted: muted),
     );
   }
 
@@ -130,42 +212,12 @@ class AppTheme {
     bool highlighted = false,
     bool muted = false,
   }) {
-    final base = muted ? bgMedium : bgCard;
-    final blendedTint = tint == null
-        ? base
-        : _blend(base, tint, highlighted ? 0.26 : 0.14);
-    final effectiveBorder =
-        borderColor ??
-        (highlighted ? tint ?? accentPrimary : Colors.white).withValues(
-          alpha: highlighted ? 0.32 : 0.12,
-        );
-
-    return BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          _blend(blendedTint, Colors.white, 0.07),
-          blendedTint,
-          _blend(blendedTint, bgDark, 0.24),
-        ],
-      ),
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: effectiveBorder, width: highlighted ? 1.5 : 1),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: muted ? 0.18 : 0.3),
-          blurRadius: 26,
-          offset: const Offset(0, 12),
-        ),
-        if (highlighted)
-          BoxShadow(
-            color: (tint ?? accentPrimary).withValues(alpha: 0.18),
-            blurRadius: 26,
-            spreadRadius: -6,
-            offset: const Offset(0, 8),
-          ),
-      ],
+    return glassDecoration(
+      tint: tint,
+      borderColor: borderColor,
+      radius: radius,
+      highlighted: highlighted,
+      muted: muted,
     );
   }
 
@@ -222,6 +274,25 @@ class AppTheme {
       muted: !isEnabled,
       highlighted: isEnabled && isActive,
       borderColor: Colors.white.withValues(alpha: isEnabled ? 0.12 : 0.06),
+    );
+  }
+
+  static BoxDecoration gradientButtonDecoration({
+    required Color accentColor,
+    bool isEnabled = true,
+    bool emphasized = false,
+    double radius = 24,
+  }) {
+    final alpha = isEnabled ? 1.0 : 0.42;
+    return BoxDecoration(
+      gradient: accentGradient(accentColor, intensity: emphasized ? 1.0 : 0.82),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.16 * alpha)),
+      boxShadow: premiumShadows(
+        accentColor.withValues(alpha: alpha),
+        emphasized: emphasized || isEnabled,
+        muted: !isEnabled,
+      ),
     );
   }
 

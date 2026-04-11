@@ -3,18 +3,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../animation/pour_animation_controller.dart';
 import '../bloc/game_cubit.dart';
 import '../bloc/game_state.dart';
 import '../bloc/settings_cubit.dart';
 import '../bloc/shop_cubit.dart';
-import '../models/bottle_model.dart';
 import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
-import '../painters/liquid_painter.dart';
 import '../painters/pouring_stream_painter.dart';
 import '../services/coin_service.dart';
 import '../services/level_generator.dart';
 import '../theme/app_theme.dart';
+import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 
 class GameScreen extends StatefulWidget {
@@ -25,84 +25,25 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
-  final GlobalKey _stackKey = GlobalKey();
-  
-  late final AnimationController _pourController;
+  final GlobalKey _pourOverlayKey = GlobalKey();
+
+  late final PourAnimationController _pourAnimation;
   late final AnimationController _wobbleController;
   late final AnimationController _celebrationController;
 
-  late final Animation<double> _tiltAnimation;
-  late final Animation<double> _streamAnimation;
-  late final Animation<double> _levelAnimation;
-
-  final Map<int, GlobalKey> _bottleKeys = {};
+  final Map<int, GlobalKey> _bottleSlotKeys = {};
 
   bool _isAnimating = false;
   Set<int> _newlySolvedBottles = {};
   Set<int> _previouslySolvedBottles = {};
-
-  Offset _sourcePos = Offset.zero;
-  Offset _destPos = Offset.zero;
+  Size _lastBottleSize = Size.zero;
 
   @override
   void initState() {
     super.initState();
 
-    _pourController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 920),
-    );
-
-    _tiltAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 22,
-      ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 58),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 1.0,
-          end: 0.0,
-        ).chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 20,
-      ),
-    ]).animate(_pourController);
-
-    _streamAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 12),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 28,
-      ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 1.0,
-          end: 0.0,
-        ).chain(CurveTween(curve: Curves.easeInCubic)),
-        weight: 20,
-      ),
-    ]).animate(_pourController);
-
-    _levelAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 22),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 58,
-      ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 20),
-    ]).animate(_pourController);
-
-    _pourController.addStatusListener((status) {
+    _pourAnimation = PourAnimationController(vsync: this);
+    _pourAnimation.controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         final preState = context.read<GameCubit>().state;
         final preSolved = <int>{};
@@ -110,7 +51,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           if (preState.bottles[i].isSolved) preSolved.add(i);
         }
 
-        setState(() => _isAnimating = false);
+        setState(() {
+          _isAnimating = false;
+          _pourAnimation.reset();
+        });
         context.read<GameCubit>().completePour();
 
         final postState = context.read<GameCubit>().state;
@@ -153,7 +97,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _pourController.dispose();
+    _pourAnimation.dispose();
     _wobbleController.dispose();
     _celebrationController.dispose();
     super.dispose();
@@ -162,19 +106,73 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _startPourAnimation() {
     setState(() {
       _isAnimating = true;
-      final state = context.read<GameCubit>().state;
-      _sourcePos = _getBottleBasePosition(state.animSourceIndex);
-      _destPos = _getBottleBasePosition(state.animDestIndex);
+      _pourAnimation.reset();
     });
-    _pourController.forward(from: 0.0);
-    context.read<SettingsCubit>().triggerLightHaptic();
+
+    // Measure after the animating build lands so the slot keys point to the
+    // static grid positions instead of the previously selected visual state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prepareAndRunPour();
+    });
   }
 
-  Offset _getBottleBasePosition(int index) {
-    final key = _bottleKeys[index];
-    if (key == null || key.currentContext == null) return Offset.zero;
-    final box = key.currentContext!.findRenderObject() as RenderBox;
-    return box.localToGlobal(Offset.zero);
+  void _prepareAndRunPour([int attempt = 0]) {
+    if (!mounted || !_isAnimating) return;
+
+    final state = context.read<GameCubit>().state;
+    if (state.animSourceIndex < 0 || state.animDestIndex < 0) return;
+
+    final sourceKey = _bottleSlotKeys[state.animSourceIndex];
+    final destinationKey = _bottleSlotKeys[state.animDestIndex];
+    final shopState = context.read<ShopCubit>().state;
+
+    if (sourceKey == null || destinationKey == null) {
+      if (attempt < 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _prepareAndRunPour(attempt + 1);
+        });
+        return;
+      }
+
+      setState(() {
+        _isAnimating = false;
+        _pourAnimation.reset();
+      });
+      context.read<GameCubit>().completePour();
+      return;
+    }
+
+    final bottleSize = _lastBottleSize == Size.zero
+        ? const Size(54, 145)
+        : _lastBottleSize;
+    final prepared = _pourAnimation.prepare(
+      overlayKey: _pourOverlayKey,
+      sourceBottleKey: sourceKey,
+      destinationBottleKey: destinationKey,
+      bottleType: shopState.selectedType,
+      bottleSize: bottleSize,
+      poursRight: state.animDestIndex > state.animSourceIndex,
+    );
+
+    if (!prepared) {
+      if (attempt < 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _prepareAndRunPour(attempt + 1);
+        });
+        return;
+      }
+
+      setState(() {
+        _isAnimating = false;
+        _pourAnimation.reset();
+      });
+      context.read<GameCubit>().completePour();
+      return;
+    }
+
+    setState(() {});
+    _pourAnimation.controller.forward(from: 0.0);
+    context.read<SettingsCubit>().triggerLightHaptic();
   }
 
   @override
@@ -218,19 +216,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 SafeArea(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                        child: _buildHeader(context, state),
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(child: _buildBottleGrid(context, state)),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                        child: _buildBottomBar(context, state),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final metrics = _GameScreenViewportMetrics.resolve(
+                          constraints,
+                        );
+
+                        // The old screen felt stretched because the header and
+                        // footer both used generous padding and tall cards,
+                        // while the board itself sat inside a scroll view. This
+                        // fixed column gives the chrome compact, content-driven
+                        // height and lets the Expanded center own the leftover
+                        // space like a proper puzzle board.
+                        return Column(
+                          children: [
+                            _buildHeader(context, state, metrics),
+                            SizedBox(height: metrics.sectionSpacing),
+                            Expanded(
+                              child: _buildBottleGrid(context, state, metrics),
+                            ),
+                            SizedBox(height: metrics.sectionSpacing),
+                            _buildBottomBar(context, state, metrics),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -241,94 +253,81 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHeader(BuildContext context, GameState state) {
+  Widget _buildHeader(
+    BuildContext context,
+    GameState state,
+    _GameScreenViewportMetrics metrics,
+  ) {
     final movesLeft = max(0, state.moveLimit - state.moveCount);
     final isLowMoves = movesLeft <= 3;
     final difficulty = LevelGenerator.difficultyLabelForLevel(state.level);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: AppTheme.surfaceDecoration(
-        tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentPrimary,
-        radius: 30,
-        muted: true,
-      ),
+    return GlassCard(
+      tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentPrimary,
+      radius: 26,
+      blurSigma: 20,
+      muted: true,
+      padding: EdgeInsets.all(metrics.headerPadding),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               GameIconButton(
                 icon: Icons.arrow_back_rounded,
                 tint: AppTheme.accentPrimary,
+                size: 20,
+                padding: const EdgeInsets.all(10),
                 onTap: () {
                   context.read<SettingsCubit>().playClickSound();
                   context.read<SettingsCubit>().triggerLightHaptic();
                   Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Puzzle Board',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Smooth pours. Clear reads.',
-                      style: TextStyle(
-                        color: AppTheme.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ],
+              SizedBox(width: metrics.innerSpacing),
+              Expanded(
+                child: _BoardHeaderCopy(
+                  titleSize: metrics.headerTitleSize,
+                  subtitleSize: metrics.headerSubtitleSize,
                 ),
               ),
-              GameStatChip(
-                label: 'Board',
-                value: '${state.bottles.length} Bottles',
-                icon: Icons.grid_view_rounded,
-                tint: AppTheme.accentSecondary,
-                compact: true,
+              SizedBox(width: metrics.innerSpacing),
+              _BoardCountChip(
+                value: '${state.bottles.length}',
+                compact: metrics.isCompact,
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: metrics.innerSpacing),
           Row(
             children: [
               Expanded(
-                child: GameStatChip(
+                child: _CompactBoardStatCard(
                   label: 'Level',
                   value: '${state.level}',
                   icon: Icons.auto_awesome_rounded,
                   tint: AppTheme.accentPrimary,
+                  compact: metrics.isCompact,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: metrics.innerSpacing),
               Expanded(
-                child: GameStatChip(
+                child: _CompactBoardStatCard(
                   label: 'Difficulty',
                   value: difficulty,
                   icon: Icons.insights_rounded,
                   tint: AppTheme.accentSecondary,
+                  compact: metrics.isCompact,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: metrics.innerSpacing),
               Expanded(
-                child: GameStatChip(
-                  label: 'Moves Left',
+                child: _CompactBoardStatCard(
+                  label: 'Moves',
                   value: '$movesLeft',
                   icon: Icons.swap_vert_rounded,
                   tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentGold,
+                  compact: metrics.isCompact,
                 ),
               ),
             ],
@@ -338,13 +337,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildBottleGrid(BuildContext context, GameState state) {
+  Widget _buildBottleGrid(
+    BuildContext context,
+    GameState state,
+    _GameScreenViewportMetrics viewportMetrics,
+  ) {
     final count = state.bottles.length;
     final shopState = context.watch<ShopCubit>().state;
 
     return AnimatedBuilder(
       animation: Listenable.merge([
-        _pourController,
+        _pourAnimation.controller,
         _wobbleController,
         _celebrationController,
       ]),
@@ -352,21 +355,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         return LayoutBuilder(
           builder: (context, constraints) {
             final metrics = _BottleGridMetrics.resolve(
-              constraints.maxWidth,
-              count,
+              maxWidth: constraints.maxWidth,
+              maxHeight: constraints.maxHeight,
+              count: count,
+              compact: viewportMetrics.isCompact,
             );
-            Offset? localSourcePos;
-            if (_isAnimating && state.animSourceIndex >= 0 && _sourcePos != Offset.zero) {
-              try {
-                final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-                if (box != null && box.hasSize) {
-                  localSourcePos = box.globalToLocal(_sourcePos);
-                }
-              } catch (_) {}
-            }
+            _lastBottleSize = metrics.bottleSize;
+            final pourFrame = _isAnimating ? _pourAnimation.frame : null;
 
             return Stack(
-              key: _stackKey,
+              key: _pourOverlayKey,
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
@@ -378,43 +376,72 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 Center(
-                  child: SingleChildScrollView(
-                    physics: _isAnimating
-                        ? const NeverScrollableScrollPhysics()
-                        : const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(8, 12, 8, 20),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 32,
-                      ),
-                      child: Center(
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: metrics.horizontalSpacing,
-                          runSpacing: metrics.verticalSpacing,
-                          children: List.generate(count, (idx) {
-                            return SizedBox(
-                              width: metrics.bottleSize.width,
-                              child: _buildBottleWidget(
-                                context,
-                                state,
-                                idx,
-                                bottleType: shopState.selectedType,
-                                fillType: shopState.selectedFill,
-                                bottleSize: metrics.bottleSize,
-                                asPlaceholder: _isAnimating && state.animSourceIndex == idx,
-                              ),
-                            );
-                          }),
+                  child: SizedBox(
+                    width: metrics.boardSize.width,
+                    height: metrics.boardSize.height,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: metrics.horizontalSpacing,
+                      runSpacing: metrics.verticalSpacing,
+                      children: List.generate(count, (idx) {
+                        final hideSourceSlot =
+                            _isAnimating &&
+                            _pourAnimation.hasLayout &&
+                            state.animSourceIndex == idx;
+                        return SizedBox(
+                          width: metrics.bottleSize.width,
+                          child: _buildBottleWidget(
+                            context,
+                            state,
+                            idx,
+                            bottleType: shopState.selectedType,
+                            fillType: shopState.selectedFill,
+                            bottleSize: metrics.bottleSize,
+                            measureKey: _bottleSlotKeyFor(idx),
+                            renderState: hideSourceSlot
+                                ? const _BottleRenderState()
+                                : _resolveBottleRenderState(
+                                    state,
+                                    idx,
+                                    pourFrame: pourFrame,
+                                  ),
+                            asPlaceholder: hideSourceSlot,
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: viewportMetrics.isCompact ? 2 : 8,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        width: min(
+                          constraints.maxWidth * 0.72,
+                          metrics.boardSize.width * 0.92,
+                        ),
+                        height: viewportMetrics.isCompact ? 18 : 24,
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [
+                              AppTheme.accentSecondary.withValues(alpha: 0.16),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                if (_isAnimating && state.animSourceIndex >= 0 && localSourcePos != null)
+                if (_isAnimating &&
+                    state.animSourceIndex >= 0 &&
+                    pourFrame != null)
                   Positioned(
-                    left: localSourcePos.dx,
-                    top: localSourcePos.dy,
+                    left: pourFrame.sourceTopLeft.dx,
+                    top: pourFrame.sourceTopLeft.dy,
                     width: metrics.bottleSize.width,
                     height: metrics.bottleSize.height,
                     child: IgnorePointer(
@@ -425,30 +452,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         bottleType: shopState.selectedType,
                         fillType: shopState.selectedFill,
                         bottleSize: metrics.bottleSize,
-                        asPlaceholder: false,
+                        renderState: _resolveBottleRenderState(
+                          state,
+                          state.animSourceIndex,
+                          pourFrame: pourFrame,
+                          floatingSource: true,
+                        ),
+                        ignoreTap: true,
                       ),
                     ),
                   ),
                 if (_isAnimating &&
                     state.animSourceIndex >= 0 &&
-                    state.animDestIndex >= 0)
+                    state.animDestIndex >= 0 &&
+                    pourFrame != null)
                   Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(
                         painter: PouringStreamPainter(
-                          start: _getBottleMouthPosition(
-                            state.animSourceIndex,
-                            bottleType: shopState.selectedType,
-                            bottleSize: metrics.bottleSize,
-                          ),
-                          end: _getBottleMouthPosition(
-                            state.animDestIndex,
-                            bottleType: shopState.selectedType,
-                            bottleSize: metrics.bottleSize,
-                          ),
+                          start: pourFrame.streamStart,
+                          end: pourFrame.streamEnd,
                           color: state.animColor,
-                          progress: _streamAnimation.value,
-                          flowPhase: _wobbleController.value * 2 * pi,
+                          progress: pourFrame.streamProgress,
+                          flowPhase: _pourAnimation.controller.value * 8 * pi,
                           fillType: shopState.selectedFill,
                         ),
                       ),
@@ -469,175 +495,146 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     required BottleType bottleType,
     required FillType fillType,
     required Size bottleSize,
+    _BottleRenderState renderState = const _BottleRenderState(),
+    Key? measureKey,
     bool asPlaceholder = false,
+    bool ignoreTap = false,
   }) {
-    _bottleKeys.putIfAbsent(index, () => GlobalKey());
-
     final bottle = state.bottles[index];
-    final isSelected = state.selectedBottleIndex == index;
-    final isSource = _isAnimating && state.animSourceIndex == index;
-    final isDest = _isAnimating && state.animDestIndex == index;
+    final isSelected =
+        !renderState.isSource &&
+        !renderState.isDest &&
+        state.selectedBottleIndex == index;
     final isHint =
-        state.hintSourceIndex == index || state.hintDestIndex == index;
+        !renderState.isSource &&
+        !renderState.isDest &&
+        (state.hintSourceIndex == index || state.hintDestIndex == index);
+    final wobblePhase = renderState.isSource || renderState.isDest
+        ? _pourAnimation.controller.value * 6 * pi
+        : _wobbleController.value * 2 * pi;
+    final bottleCanvas = SizedBox(
+      width: bottleSize.width,
+      height: bottleSize.height,
+      child: BottleWidget(
+        bottle: bottle,
+        bottleType: bottleType,
+        fillType: fillType,
+        size: bottleSize,
+        tiltAngle: renderState.tiltAngle,
+        levelProgress: renderState.levelProgress,
+        isSource: renderState.isSource,
+        isDest: renderState.isDest,
+        pourCount: (renderState.isSource || renderState.isDest)
+            ? state.animColorCount
+            : 0,
+        pourColor: renderState.isDest ? state.animColor : null,
+        isSelected: isSelected,
+        isHint: isHint,
+        wobblePhase: wobblePhase,
+        isSolved: bottle.isSolved,
+        capProgress: _newlySolvedBottles.contains(index)
+            ? _celebrationController.value
+            : (_previouslySolvedBottles.contains(index) || bottle.isSolved
+                  ? 1.0
+                  : 0.0),
+        celebrationProgress: _newlySolvedBottles.contains(index)
+            ? _celebrationController.value
+            : 0.0,
+      ),
+    );
 
-    double tiltAngle = 0.0;
-    double translateX = 0.0;
-    double translateY = isSelected ? -16.0 : (isHint ? -10.0 : 0.0);
-
-    if (isSource &&
-        _isAnimating &&
-        _sourcePos != Offset.zero &&
-        _destPos != Offset.zero) {
-      final direction = state.animDestIndex > index ? 1.0 : -1.0;
-      tiltAngle = direction * _tiltAnimation.value * 1.46;
-
-      final mouthOffset = bottleSize.width * 0.26;
-      final liftHeight = bottleSize.height * 0.3;
-      final targetX = (_destPos.dx - _sourcePos.dx) - (direction * mouthOffset);
-      final targetY = (_destPos.dy - _sourcePos.dy) - liftHeight;
-
-      translateX = targetX * _tiltAnimation.value;
-      translateY = targetY * _tiltAnimation.value;
-    } else if (isDest && _isAnimating) {
-      translateY -= sin(_levelAnimation.value * pi) * 6;
-    }
-
-    double levelProgress = 0.0;
-    if ((isSource || isDest) && _isAnimating) {
-      levelProgress = _levelAnimation.value;
-    }
-
-    final wobblePhase = _wobbleController.value * 2 * pi;
-    final scale = isSource
-        ? 1.05
-        : isDest
-        ? 1.0 + (sin(_levelAnimation.value * pi) * 0.035)
-        : isSelected
-        ? 1.04
-        : isHint
-        ? 1.02
-        : bottle.isSolved
-        ? 0.99
-        : 1.0;
-
-    Widget content = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: asPlaceholder ? null : () {
-        if (_isAnimating) return;
-        context.read<SettingsCubit>().playClickSound();
-        context.read<SettingsCubit>().triggerSelectionHaptic();
-        context.read<GameCubit>().onBottleTap(index);
-      },
-      child: AnimatedContainer(
-        key: _bottleKeys[index],
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(translateX, translateY, 0),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          scale: scale,
-          child: SizedBox(
-            width: bottleSize.width,
-            height: bottleSize.height,
-            child: CustomPaint(
-              painter: LiquidPainter(
-                bottle: bottle,
-                tiltAngle: tiltAngle,
-                levelProgress: levelProgress,
-                isSource: isSource,
-                isDest: isDest,
-                pourCount: (isSource || isDest) ? state.animColorCount : 0,
-                pourColor: isDest ? state.animColor : null,
-                isSelected: isSelected,
-                isHint: isHint,
-                wobblePhase: wobblePhase,
-                isSolved: bottle.isSolved,
-                capProgress: _newlySolvedBottles.contains(index)
-                    ? _celebrationController.value
-                    : (_previouslySolvedBottles.contains(index) ||
-                              bottle.isSolved
-                          ? 1.0
-                          : 0.0),
-                celebrationProgress: _newlySolvedBottles.contains(index)
-                    ? _celebrationController.value
-                    : 0.0,
-                bottleType: bottleType,
-                fillType: fillType,
-              ),
-              size: bottleSize,
-            ),
-          ),
+    Widget content = SizedBox(
+      key: measureKey,
+      width: bottleSize.width,
+      height: bottleSize.height,
+      child: Transform.translate(
+        offset: renderState.translation,
+        child: Transform.scale(
+          scale: renderState.scale,
+          alignment: Alignment.center,
+          child: bottleCanvas,
         ),
       ),
     );
 
     if (asPlaceholder) {
-      return Opacity(opacity: 0.0, child: content);
+      return IgnorePointer(
+        ignoring: true,
+        child: Opacity(opacity: 0.0, child: content),
+      );
     }
-    return content;
+
+    if (ignoreTap) {
+      return IgnorePointer(child: content);
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (_isAnimating) return;
+        context.read<SettingsCubit>().playClickSound();
+        context.read<SettingsCubit>().triggerSelectionHaptic();
+        context.read<GameCubit>().onBottleTap(index);
+      },
+      child: content,
+    );
   }
 
-  Offset _getBottleMouthPosition(
+  GlobalKey _bottleSlotKeyFor(int index) {
+    return _bottleSlotKeys.putIfAbsent(index, () => GlobalKey());
+  }
+
+  _BottleRenderState _resolveBottleRenderState(
+    GameState state,
     int index, {
-    required BottleType bottleType,
-    required Size bottleSize,
+    required PourAnimationFrame? pourFrame,
+    bool floatingSource = false,
   }) {
-    final key = _bottleKeys[index];
-    if (key == null || key.currentContext == null) return Offset.zero;
+    final bottle = state.bottles[index];
+    final isSelected = state.selectedBottleIndex == index;
+    final isHint =
+        state.hintSourceIndex == index || state.hintDestIndex == index;
 
-    final box = key.currentContext!.findRenderObject() as RenderBox;
-    final pos = box.localToGlobal(Offset.zero);
-    final geometry = BottleGeometry.fromSize(bottleSize, bottleType);
-    final isSource =
-        _isAnimating &&
-        context.read<GameCubit>().state.animSourceIndex == index;
-
-    if (isSource) {
-      final state = context.read<GameCubit>().state;
-      final direction = state.animDestIndex > index ? 1.0 : -1.0;
-      final mouthX = direction > 0 ? geometry.neckRight : geometry.neckLeft;
-      final destPos = _getBottleBasePosition(state.animDestIndex);
-
-      if (_sourcePos != Offset.zero && destPos != Offset.zero) {
-        final mouthOffset = bottleSize.width * 0.26;
-        final liftHeight = bottleSize.height * 0.3;
-        final targetX =
-            (destPos.dx - _sourcePos.dx) - (direction * mouthOffset);
-        final targetY = (destPos.dy - _sourcePos.dy) - liftHeight;
-        final translateX = targetX * _tiltAnimation.value;
-        final translateY = targetY * _tiltAnimation.value;
-        return Offset(
-          pos.dx + mouthX + translateX,
-          pos.dy + geometry.neckTop + translateY,
-        );
-      }
-
-      return Offset(pos.dx + mouthX, pos.dy + geometry.neckTop);
+    if (floatingSource && pourFrame != null) {
+      return _BottleRenderState(
+        tiltAngle: pourFrame.sourceTiltAngle,
+        scale: pourFrame.sourceScale,
+        levelProgress: pourFrame.transferProgress,
+        isSource: true,
+      );
     }
 
-    final capacity = kMaxBottleCapacity.toDouble();
-    final state = context.read<GameCubit>().state;
-    final currentAmount = state.bottles[index].colors.length;
-    final isDest = _isAnimating && state.animDestIndex == index;
-    final fillLevel = currentAmount + (isDest ? _levelAnimation.value * state.animColorCount : 0);
-    
-    final fillFraction = fillLevel / capacity;
-    final spaceFraction = 1.0 - fillFraction;
-    
-    final yTarget = geometry.neckTop + ((geometry.bottom - geometry.neckTop) * spaceFraction.clamp(0.0, 1.0));
-    
-    return Offset(pos.dx + geometry.centerX, pos.dy + yTarget);
+    if (_isAnimating && state.animDestIndex == index && pourFrame != null) {
+      return _BottleRenderState(
+        translation: Offset(0, pourFrame.destinationLiftY),
+        scale: pourFrame.destinationScale,
+        levelProgress: pourFrame.transferProgress,
+        isDest: true,
+      );
+    }
+
+    return _BottleRenderState(
+      translation: Offset(0, isSelected ? -16.0 : (isHint ? -10.0 : 0.0)),
+      scale: isSelected
+          ? 1.05
+          : isHint
+          ? 1.03
+          : bottle.isSolved
+          ? 0.99
+          : 1.0,
+    );
   }
 
-  Widget _buildBottomBar(BuildContext context, GameState state) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: AppTheme.surfaceDecoration(
-        tint: AppTheme.accentPrimary,
-        radius: 32,
-        muted: true,
-      ),
+  Widget _buildBottomBar(
+    BuildContext context,
+    GameState state,
+    _GameScreenViewportMetrics metrics,
+  ) {
+    return GlassCard(
+      tint: AppTheme.accentPrimary,
+      radius: 26,
+      muted: true,
+      padding: EdgeInsets.all(metrics.bottomBarPadding),
       child: Row(
         children: [
           Expanded(
@@ -654,7 +651,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   : null,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: metrics.innerSpacing),
           Expanded(
             child: _buildActionButton(
               icon: Icons.lightbulb_outline_rounded,
@@ -671,7 +668,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   : null,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: metrics.innerSpacing),
           Expanded(
             child: _buildActionButton(
               icon: Icons.refresh_rounded,
@@ -696,83 +693,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     VoidCallback? onTap,
     int? badgeCount,
   }) {
-    final isEnabled = onTap != null;
     final isActive = badgeCount != null && badgeCount > 0;
 
-    return GamePressable(
+    return GameButton(
+      label: label,
+      icon: icon,
       onTap: onTap,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 180),
-        opacity: isEnabled ? 1 : 0.36,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: AppTheme.actionButtonDecoration(
-            isEnabled: isEnabled,
-            isActive: isActive,
-            accentColor: accentColor,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.16),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: AppTheme.textPrimary, size: 22),
-                  ),
-                  if (badgeCount != null)
-                    Positioned(
-                      top: -4,
-                      right: -6,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 22,
-                          minHeight: 22,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                        decoration: BoxDecoration(
-                          color: badgeCount > 0
-                              ? AppTheme.accentWarm
-                              : AppTheme.textMuted,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.16),
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$badgeCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      accentColor: accentColor,
+      badgeCount: badgeCount,
+      emphasized: isActive,
+      minHeight: 76,
+      radius: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      layout: GameButtonLayout.vertical,
     );
   }
 
@@ -1046,6 +979,200 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
+class _BoardHeaderCopy extends StatelessWidget {
+  const _BoardHeaderCopy({required this.titleSize, required this.subtitleSize});
+
+  final double titleSize;
+  final double subtitleSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Puzzle Board',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: titleSize,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Smooth pours. Clear reads.',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: subtitleSize,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.32,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BoardCountChip extends StatelessWidget {
+  const _BoardCountChip({required this.value, required this.compact});
+
+  final String value;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      tint: AppTheme.accentSecondary,
+      radius: 18,
+      highlighted: true,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 8 : 10,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: compact ? 24 : 28,
+            height: compact ? 24 : 28,
+            decoration: BoxDecoration(
+              gradient: AppTheme.accentGradient(AppTheme.accentSecondary),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.grid_view_rounded,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'BOARD',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.9,
+                ),
+              ),
+              Text(
+                '$value Bottles',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.18,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactBoardStatCard extends StatelessWidget {
+  const _CompactBoardStatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.tint,
+    required this.compact,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color tint;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      tint: tint,
+      radius: 20,
+      muted: true,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 9 : 10,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: compact ? 26 : 28,
+            height: compact ? 26 : 28,
+            decoration: BoxDecoration(
+              gradient: AppTheme.accentGradient(tint, intensity: 0.9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white, size: compact ? 14 : 15),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: compact ? 11 : 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottleRenderState {
+  const _BottleRenderState({
+    this.translation = Offset.zero,
+    this.scale = 1.0,
+    this.tiltAngle = 0.0,
+    this.levelProgress = 0.0,
+    this.isSource = false,
+    this.isDest = false,
+  });
+
+  final Offset translation;
+  final double scale;
+  final double tiltAngle;
+  final double levelProgress;
+  final bool isSource;
+  final bool isDest;
+}
+
 class _BoardPainter extends CustomPainter {
   const _BoardPainter({required this.progress, required this.isAnimating});
 
@@ -1107,44 +1234,91 @@ class _BoardPainter extends CustomPainter {
   }
 }
 
+class _GameScreenViewportMetrics {
+  const _GameScreenViewportMetrics({
+    required this.isCompact,
+    required this.sectionSpacing,
+    required this.headerPadding,
+    required this.bottomBarPadding,
+    required this.innerSpacing,
+    required this.headerTitleSize,
+    required this.headerSubtitleSize,
+  });
+
+  final bool isCompact;
+  final double sectionSpacing;
+  final double headerPadding;
+  final double bottomBarPadding;
+  final double innerSpacing;
+  final double headerTitleSize;
+  final double headerSubtitleSize;
+
+  static _GameScreenViewportMetrics resolve(BoxConstraints constraints) {
+    final isCompact = constraints.maxHeight < 740 || constraints.maxWidth < 370;
+    return _GameScreenViewportMetrics(
+      isCompact: isCompact,
+      sectionSpacing: isCompact ? 12 : 16,
+      headerPadding: isCompact ? 12 : 14,
+      bottomBarPadding: isCompact ? 10 : 12,
+      innerSpacing: isCompact ? 10 : 12,
+      headerTitleSize: isCompact ? 18 : 20,
+      headerSubtitleSize: isCompact ? 11 : 12,
+    );
+  }
+}
+
 class _BottleGridMetrics {
   const _BottleGridMetrics({
+    required this.boardSize,
     required this.bottleSize,
     required this.horizontalSpacing,
     required this.verticalSpacing,
   });
 
+  final Size boardSize;
   final Size bottleSize;
   final double horizontalSpacing;
   final double verticalSpacing;
 
-  static _BottleGridMetrics resolve(double width, int count) {
+  static _BottleGridMetrics resolve({
+    required double maxWidth,
+    required double maxHeight,
+    required int count,
+    required bool compact,
+  }) {
     final columns = _columnCountFor(count);
-    const horizontalPadding = 16.0;
-    const minBottleWidth = 52.0;
-    const maxBottleWidth = 58.0;
+    final rows = (count / columns).ceil();
+    const bottleAspect = 2.68;
+    final horizontalPadding = compact ? 8.0 : 12.0;
+    final verticalPadding = compact ? 8.0 : 12.0;
+    final horizontalSpacing = count >= 16 ? 4.0 : (count >= 10 ? 8.0 : 10.0);
+    final verticalSpacing = compact
+        ? (count >= 10 ? 10.0 : 12.0)
+        : (count >= 16 ? 10.0 : (count >= 10 ? 12.0 : 14.0));
+    final availableWidth = max(0.0, maxWidth - (horizontalPadding * 2));
+    final availableHeight = max(0.0, maxHeight - (verticalPadding * 2));
+    final widthLimited =
+        (availableWidth - horizontalSpacing * (columns - 1)) / columns;
+    final heightLimited =
+        ((availableHeight - verticalSpacing * (rows - 1)) / rows) /
+        bottleAspect;
+    final bottleWidth = min(
+      widthLimited,
+      heightLimited,
+    ).clamp(compact ? 44.0 : 46.0, count >= 12 ? 62.0 : 68.0);
+    final resolvedBottleHeight = bottleWidth * bottleAspect;
+    final boardWidth =
+        (columns * bottleWidth) + ((columns - 1) * horizontalSpacing);
+    final boardHeight =
+        (rows * resolvedBottleHeight) + ((rows - 1) * verticalSpacing);
 
-    var spacing = count >= 16 ? 4.0 : (count >= 10 ? 8.0 : 12.0);
-    final availableWidth = max(0.0, width - (horizontalPadding * 2));
-    var bottleWidth = (availableWidth - spacing * (columns - 1)) / columns;
-
-    if (bottleWidth > maxBottleWidth) {
-      bottleWidth = maxBottleWidth;
-    }
-    if (bottleWidth < minBottleWidth) {
-      bottleWidth = minBottleWidth;
-      spacing = max(
-        3.0,
-        (availableWidth - bottleWidth * columns) / max(1, columns - 1),
-      );
-    }
-
-    final bottleHeight = bottleWidth * 2.68;
-    final verticalSpacing = count >= 16 ? 10.0 : (count >= 10 ? 14.0 : 18.0);
+    // The board is sized against both width and height so it can stay centered
+    // and non-scrollable inside the Expanded middle section on short devices.
 
     return _BottleGridMetrics(
-      bottleSize: Size(bottleWidth, bottleHeight),
-      horizontalSpacing: spacing,
+      boardSize: Size(boardWidth, boardHeight),
+      bottleSize: Size(bottleWidth, resolvedBottleHeight),
+      horizontalSpacing: horizontalSpacing,
       verticalSpacing: verticalSpacing,
     );
   }

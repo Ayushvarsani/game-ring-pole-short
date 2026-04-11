@@ -9,9 +9,9 @@ import '../bloc/shop_cubit.dart';
 import '../bloc/shop_state.dart';
 import '../models/bottle_model.dart';
 import '../models/game_colors.dart';
-import '../painters/liquid_painter.dart';
 import '../services/level_progress_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 import '../widgets/settings_dialog.dart';
 import 'game_screen.dart';
@@ -26,9 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _wobbleController;
-  late final AnimationController _glowController;
   late final AnimationController _ambientController;
-  late Future<int> _nextLevelFuture;
 
   final List<BottleModel> _demoBottles = const [
     BottleModel(
@@ -76,29 +74,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 3400),
     )..repeat();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat(reverse: true);
     _ambientController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
-    _nextLevelFuture = LevelProgressService.getNextLevelToPlay();
   }
 
   @override
   void dispose() {
     _wobbleController.dispose();
-    _glowController.dispose();
     _ambientController.dispose();
     super.dispose();
-  }
-
-  void _refreshNextLevel() {
-    setState(() {
-      _nextLevelFuture = LevelProgressService.getNextLevelToPlay();
-    });
   }
 
   Future<void> _startGame() async {
@@ -114,7 +100,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
     );
-    if (mounted) _refreshNextLevel();
   }
 
   Future<void> _openShop() async {
@@ -123,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const ShopScreen()));
-    if (mounted) _refreshNextLevel();
   }
 
   void _openSettings() {
@@ -195,85 +179,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 padding: AppTheme.screenPadding,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final compact = constraints.maxHeight < 760;
+                    final metrics = _HomeViewportMetrics.resolve(constraints);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildTopBar(context),
+                        SizedBox(height: metrics.sectionSpacing),
+                        // The old layout wrapped the entire center section in a
+                        // taller action stack and animated CTA, which made the
+                        // landing page feel bottom-heavy. This simpler layout
+                        // keeps one compact header, centers the hero content in
+                        // the Expanded middle section, and reserves a single
+                        // static Play button at the bottom.
                         Expanded(
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
+                          child: Center(
                             child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: constraints.maxHeight - 76,
-                              ),
+                              constraints: const BoxConstraints(maxWidth: 420),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SizedBox(height: compact ? 16 : 26),
-                                  _buildHeroCopy(compact),
-                                  SizedBox(height: compact ? 24 : 34),
-                                  _buildBottleStage(compact),
-                                  SizedBox(height: compact ? 22 : 30),
-                                  _buildSupportRow(),
-                                  SizedBox(height: compact ? 26 : 34),
-                                  FutureBuilder<int>(
-                                    future: _nextLevelFuture,
-                                    builder: (context, snapshot) {
-                                      final nextLevel = snapshot.data ?? 1;
-                                      return AnimatedBuilder(
-                                        animation: _glowController,
-                                        builder: (context, child) {
-                                          final glow =
-                                              0.22 +
-                                              (_glowController.value * 0.18);
-                                          final floatOffset =
-                                              sin(
-                                                _glowController.value * pi * 2,
-                                              ) *
-                                              2.5;
-                                          return Transform.translate(
-                                            offset: Offset(0, -floatOffset),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(28),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: AppTheme
-                                                        .accentPrimary
-                                                        .withValues(
-                                                          alpha: glow,
-                                                        ),
-                                                    blurRadius: 32,
-                                                    spreadRadius: -10,
-                                                    offset: const Offset(0, 18),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: GamePrimaryButton(
-                                                label: 'Play Level $nextLevel',
-                                                subtitle:
-                                                    'Continue your puzzle run',
-                                                icon: Icons.play_arrow_rounded,
-                                                onTap: _startGame,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 28,
-                                                      vertical: 20,
-                                                    ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
+                                  Flexible(
+                                    flex: 4,
+                                    child: Center(
+                                      child: _buildHeroCopy(metrics),
+                                    ),
                                   ),
-                                  const SizedBox(height: 14),
+                                  SizedBox(height: metrics.sectionSpacing),
+                                  Flexible(
+                                    flex: 6,
+                                    child: Center(
+                                      child: _buildBottleStage(metrics),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
+                        ),
+                        SizedBox(height: metrics.sectionSpacing),
+                        Align(
+                          alignment: Alignment.center,
+                          child: _buildPlayButton(context, metrics),
                         ),
                       ],
                     );
@@ -288,153 +234,120 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: AppTheme.surfaceDecoration(
-            tint: AppTheme.accentSecondary,
-            radius: 22,
-            muted: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 390;
+        final iconSize = compact ? 18.0 : 19.0;
+        final actionSpacing = compact ? 8.0 : 10.0;
+        final actionPadding = compact ? 8.0 : 9.0;
+
+        return GlassCard(
+          tint: AppTheme.accentSecondary,
+          radius: 22,
+          blurSigma: 18,
+          muted: true,
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 14,
+            vertical: compact ? 10 : 11,
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: compact ? 34 : 36,
+                height: compact ? 34 : 36,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppTheme.accentSecondary, AppTheme.accentPrimary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.water_drop_rounded,
                   color: Colors.white,
-                  size: 20,
+                  size: compact ? 19 : 21,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Color Sort',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Puzzle Studio',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
+              SizedBox(width: compact ? 10 : 12),
+              Expanded(child: _HomeBrandCopy(compact: compact)),
+              SizedBox(width: actionSpacing),
+              BlocBuilder<ShopCubit, ShopState>(
+                builder: (context, shop) {
+                  return _HomeCoinChip(coins: shop.coins, compact: compact);
+                },
+              ),
+              SizedBox(width: actionSpacing),
+              _HeaderActionButton(
+                icon: Icons.storefront_rounded,
+                tint: AppTheme.accentWarm,
+                size: iconSize,
+                padding: actionPadding,
+                onTap: _openShop,
+              ),
+              SizedBox(width: actionSpacing),
+              _HeaderActionButton(
+                icon: Icons.tune_rounded,
+                tint: AppTheme.accentPrimary,
+                size: iconSize,
+                padding: actionPadding,
+                onTap: _openSettings,
               ),
             ],
           ),
-        ),
-        const Spacer(),
-        BlocBuilder<ShopCubit, ShopState>(
-          builder: (context, shop) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              decoration: AppTheme.chipDecoration(
-                tint: AppTheme.accentGold,
-                emphasized: true,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.monetization_on_rounded,
-                    color: AppTheme.accentGold,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${shop.coins}',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 10),
-        GameIconButton(
-          icon: Icons.storefront_rounded,
-          tint: AppTheme.accentWarm,
-          onTap: _openShop,
-        ),
-        const SizedBox(width: 10),
-        GameIconButton(
-          icon: Icons.tune_rounded,
-          tint: AppTheme.accentPrimary,
-          onTap: _openSettings,
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildHeroCopy(bool compact) {
+  Widget _buildHeroCopy(_HomeViewportMetrics metrics) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: metrics.isVeryShort ? 12 : 14,
+            vertical: metrics.isVeryShort ? 6 : 8,
+          ),
           decoration: AppTheme.chipDecoration(
             tint: AppTheme.accentSecondary,
             emphasized: true,
           ),
-          child: const Text(
+          child: Text(
             'PREMIUM CASUAL PUZZLE',
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 11,
+              fontSize: metrics.isVeryShort ? 10 : 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.3,
             ),
           ),
         ),
-        SizedBox(height: compact ? 16 : 20),
+        SizedBox(height: metrics.heroSpacing),
         Text(
           'Sort every drop\ninto its perfect bottle',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: compact ? 34 : 40,
-            height: 0.98,
+            fontSize: metrics.titleFontSize,
+            height: metrics.isVeryShort ? 1.0 : 0.98,
             fontWeight: FontWeight.w900,
-            letterSpacing: -1.1,
+            letterSpacing: metrics.isVeryShort ? -0.8 : -1.1,
           ),
         ),
-        SizedBox(height: compact ? 12 : 14),
+        SizedBox(height: metrics.copySpacing),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
-          child: const Text(
+          constraints: BoxConstraints(maxWidth: metrics.copyWidth),
+          child: Text(
             'A clean strategy puzzle with smooth pours, subtle feedback, and enough depth to keep every level satisfying.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 15,
+              fontSize: metrics.bodyFontSize,
               fontWeight: FontWeight.w500,
-              height: 1.45,
+              height: 1.4,
+              letterSpacing: 0.16,
             ),
           ),
         ),
@@ -442,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildBottleStage(bool compact) {
+  Widget _buildBottleStage(_HomeViewportMetrics metrics) {
     return BlocBuilder<ShopCubit, ShopState>(
       builder: (context, shop) {
         return AnimatedBuilder(
@@ -450,52 +363,60 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           builder: (context, child) {
             final wobblePhase = _wobbleController.value * 2 * pi;
             final ambientPhase = _ambientController.value * 2 * pi;
-            final stageHeight = compact ? 248.0 : 286.0;
-            final stageWidth = compact ? 308.0 : 332.0;
 
-            return SizedBox(
-              width: stageWidth,
-              height: stageHeight,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _HeroStagePainter(
-                        progress: _ambientController.value,
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: metrics.stageWidth,
+                maxHeight: metrics.stageHeight,
+              ),
+              child: AspectRatio(
+                aspectRatio: 332 / 286,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _HeroStagePainter(
+                          progress: _ambientController.value,
+                        ),
                       ),
                     ),
-                  ),
-                  ...List.generate(_demoBottles.length, (index) {
-                    final baseX = [-108.0, -34.0, 34.0, 108.0][index];
-                    final baseY = [18.0, 0.0, 0.0, 18.0][index];
-                    final scale = [0.9, 1.0, 1.0, 0.9][index];
-                    final bob = sin(ambientPhase + index * 0.65) * 6;
-                    final tilt = sin(ambientPhase + index * 0.75) * 0.04;
+                    ...List.generate(_demoBottles.length, (index) {
+                      final baseX = [-108.0, -34.0, 34.0, 108.0][index];
+                      final baseY = [18.0, 0.0, 0.0, 18.0][index];
+                      final scale = [0.9, 1.0, 1.0, 0.9][index];
+                      final bob = sin(ambientPhase + index * 0.65) * 6;
+                      final tilt = sin(ambientPhase + index * 0.75) * 0.04;
 
-                    return Transform.translate(
-                      offset: Offset(baseX, baseY + bob),
-                      child: Transform.rotate(
-                        angle: tilt,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: SizedBox(
-                            width: compact ? 60 : 64,
-                            height: compact ? 160 : 170,
-                            child: CustomPaint(
-                              painter: LiquidPainter(
+                      return Transform.translate(
+                        offset: Offset(
+                          baseX * metrics.stagePositionScale,
+                          (baseY + bob) * metrics.stagePositionScale,
+                        ),
+                        child: Transform.rotate(
+                          angle: tilt,
+                          child: Transform.scale(
+                            scale: scale,
+                            child: SizedBox(
+                              width: metrics.bottlePreviewWidth,
+                              height: metrics.bottlePreviewHeight,
+                              child: BottleWidget(
                                 bottle: _demoBottles[index],
                                 wobblePhase: wobblePhase,
                                 bottleType: shop.selectedType,
                                 fillType: shop.selectedFill,
+                                size: Size(
+                                  metrics.bottlePreviewWidth,
+                                  metrics.bottlePreviewHeight,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
-                ],
+                      );
+                    }),
+                  ],
+                ),
               ),
             );
           },
@@ -504,34 +425,268 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSupportRow() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 10,
-      runSpacing: 10,
-      children: const [
-        GameStatChip(
-          label: 'Collection',
-          value: '200 Levels',
-          icon: Icons.auto_awesome_rounded,
-          tint: AppTheme.accentSecondary,
-          compact: true,
+  Widget _buildPlayButton(BuildContext context, _HomeViewportMetrics metrics) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: metrics.playButtonWidth,
+        maxWidth: metrics.playButtonWidth,
+      ),
+      child: _HomePlayButton(
+        onTap: _startGame,
+        height: metrics.playButtonHeight,
+        iconSize: metrics.isVeryShort ? 18 : 20,
+      ),
+    );
+  }
+}
+
+class _HomeViewportMetrics {
+  const _HomeViewportMetrics({
+    required this.isVeryShort,
+    required this.sectionSpacing,
+    required this.titleFontSize,
+    required this.bodyFontSize,
+    required this.heroSpacing,
+    required this.copySpacing,
+    required this.copyWidth,
+    required this.stageWidth,
+    required this.stageHeight,
+    required this.stagePositionScale,
+    required this.bottlePreviewWidth,
+    required this.bottlePreviewHeight,
+    required this.playButtonHeight,
+    required this.playButtonWidth,
+  });
+
+  final bool isVeryShort;
+  final double sectionSpacing;
+  final double titleFontSize;
+  final double bodyFontSize;
+  final double heroSpacing;
+  final double copySpacing;
+  final double copyWidth;
+  final double stageWidth;
+  final double stageHeight;
+  final double stagePositionScale;
+  final double bottlePreviewWidth;
+  final double bottlePreviewHeight;
+  final double playButtonHeight;
+  final double playButtonWidth;
+
+  static _HomeViewportMetrics resolve(BoxConstraints constraints) {
+    final maxWidth = constraints.maxWidth;
+    final maxHeight = constraints.maxHeight;
+    final isShort = maxHeight < 760;
+    final isVeryShort = maxHeight < 690;
+
+    final stageWidth = (maxWidth * (maxWidth < 390 ? 0.84 : 0.76))
+        .clamp(260.0, 332.0)
+        .toDouble();
+    final stageHeight =
+        (maxHeight * (isVeryShort ? 0.29 : (isShort ? 0.33 : 0.37)))
+            .clamp(196.0, 286.0)
+            .toDouble();
+    final stageScale = stageWidth / 332.0;
+
+    return _HomeViewportMetrics(
+      isVeryShort: isVeryShort,
+      sectionSpacing: isVeryShort ? 10 : (isShort ? 14 : 18),
+      titleFontSize: isVeryShort ? 29 : (isShort ? 34 : 40),
+      bodyFontSize: isVeryShort ? 13 : 15,
+      heroSpacing: isVeryShort ? 12 : (isShort ? 16 : 20),
+      copySpacing: isVeryShort ? 10 : 14,
+      copyWidth: maxWidth < 360 ? 280 : 320,
+      stageWidth: stageWidth,
+      stageHeight: stageHeight,
+      stagePositionScale: stageScale,
+      bottlePreviewWidth: (64 * stageScale).clamp(50.0, 64.0).toDouble(),
+      bottlePreviewHeight: (170 * stageScale).clamp(132.0, 170.0).toDouble(),
+      playButtonHeight: isVeryShort ? 54 : 58,
+      playButtonWidth: (maxWidth * 0.44).clamp(164.0, 208.0).toDouble(),
+    );
+  }
+}
+
+class _HomeBrandCopy extends StatelessWidget {
+  const _HomeBrandCopy({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Color Sort',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: compact ? 17 : 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.16,
+          ),
         ),
-        GameStatChip(
-          label: 'Tools',
-          value: 'Hints + Undo',
-          icon: Icons.psychology_alt_rounded,
-          tint: AppTheme.accentWarm,
-          compact: true,
-        ),
-        GameStatChip(
-          label: 'Style',
-          value: 'Custom Bottles',
-          icon: Icons.inventory_2_rounded,
-          tint: AppTheme.accentPrimary,
-          compact: true,
+        const SizedBox(height: 1),
+        Text(
+          'Puzzle Studio',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: compact ? 9 : 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.9,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _HomeCoinChip extends StatelessWidget {
+  const _HomeCoinChip({required this.coins, required this.compact});
+
+  final int coins;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      tint: AppTheme.accentGold,
+      radius: 18,
+      highlighted: true,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 8 : 9,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.monetization_on_rounded,
+            color: AppTheme.accentGold,
+            size: compact ? 16 : 17,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$coins',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: compact ? 13 : 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({
+    required this.icon,
+    required this.tint,
+    required this.size,
+    required this.padding,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final double size;
+  final double padding;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return tint.withValues(alpha: 0.08);
+          }
+          return Colors.transparent;
+        }),
+        child: GlassCard(
+          tint: tint,
+          radius: 16,
+          muted: true,
+          padding: EdgeInsets.all(padding),
+          child: Icon(icon, color: AppTheme.textPrimary, size: size),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomePlayButton extends StatelessWidget {
+  const _HomePlayButton({
+    required this.onTap,
+    required this.height,
+    required this.iconSize,
+  });
+
+  final VoidCallback onTap;
+  final double height;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.06);
+          }
+          return Colors.transparent;
+        }),
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            gradient: AppTheme.buttonGradient,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accentPrimary.withValues(alpha: 0.22),
+                blurRadius: 24,
+                spreadRadius: -10,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: iconSize,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Play',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.38,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

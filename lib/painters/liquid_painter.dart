@@ -366,6 +366,33 @@ class LiquidPainter extends CustomPainter {
         ],
       ).createShader(shadowRect);
     canvas.drawOval(shadowRect, shadowPaint);
+
+    final glowColor = isSource
+        ? AppTheme.accentPrimary
+        : isDest
+        ? AppTheme.accentSecondary
+        : isSelected
+        ? AppTheme.accentSecondary
+        : isHint
+        ? AppTheme.accentGold
+        : null;
+    if (glowColor != null) {
+      final glowRect = Rect.fromCenter(
+        center: Offset(g.centerX, g.bottom + 3),
+        width: g.bottleWidth * (isSelected ? 1.08 : 0.98),
+        height: g.bottleWidth * 0.26,
+      );
+      final glowPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            glowColor.withValues(
+              alpha: isSelected ? 0.22 : (isSource || isDest ? 0.16 : 0.12),
+            ),
+            Colors.transparent,
+          ],
+        ).createShader(glowRect);
+      canvas.drawOval(glowRect, glowPaint);
+    }
   }
 
   void _drawBottleGlass(Canvas canvas, Path bodyPath, BottleGeometry g) {
