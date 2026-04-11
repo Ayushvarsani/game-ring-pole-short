@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../bloc/settings_cubit.dart';
 import '../bloc/shop_cubit.dart';
 import '../bloc/shop_state.dart';
-import '../bloc/settings_cubit.dart';
-import '../models/bottle_type.dart';
 import '../models/bottle_model.dart';
+import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
-import '../models/theme_type.dart';
 import '../models/game_colors.dart';
+import '../models/theme_type.dart';
 import '../painters/liquid_painter.dart';
 import '../theme/app_theme.dart';
+import '../widgets/game_ui.dart';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
@@ -19,128 +21,470 @@ class ShopScreen extends StatefulWidget {
 }
 
 class _ShopScreenState extends State<ShopScreen> {
-  int _selectedTabIndex = 0; // 0 for Bottles, 1 for Contents, 2 for Themes
+  int _selectedTabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final themeGradient = context
+        .watch<ShopCubit>()
+        .state
+        .selectedTheme
+        .gradient;
+
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: context.watch<ShopCubit>().state.selectedTheme.gradient,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
+      body: DecoratedBox(
+        decoration: BoxDecoration(gradient: themeGradient),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.overlayGradient,
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 24),
-                      onPressed: () {
-                        context.read<SettingsCubit>().playClickSound();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Shop',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
+                    _buildHeader(context),
+                    const SizedBox(height: 12),
+                    _buildTabBar(context),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: BlocBuilder<ShopCubit, ShopState>(
+                        builder: (context, shop) {
+                          return SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 14,
+                              runSpacing: 14,
+                              children: _selectedTabIndex == 0
+                                  ? BottleType.values
+                                        .map(
+                                          (type) => _buildBottleCard(
+                                            context,
+                                            type,
+                                            shop,
+                                          ),
+                                        )
+                                        .toList()
+                                  : _selectedTabIndex == 1
+                                  ? FillType.values
+                                        .map(
+                                          (type) => _buildFillCard(
+                                            context,
+                                            type,
+                                            shop,
+                                          ),
+                                        )
+                                        .toList()
+                                  : ThemeType.values
+                                        .map(
+                                          (type) => _buildThemeCard(
+                                            context,
+                                            type,
+                                            shop,
+                                          ),
+                                        )
+                                        .toList(),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(width: 48), // Balance for centering
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              const SizedBox(height: 12),
-              
-              // Coins
-              BlocBuilder<ShopCubit, ShopState>(
-                builder: (context, shop) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppTheme.accentGold.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.monetization_on_rounded,
-                          color: AppTheme.accentGold.withValues(alpha: 0.95),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${shop.coins} coins',
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+  Widget _buildHeader(BuildContext context) {
+    return BlocBuilder<ShopCubit, ShopState>(
+      builder: (context, shop) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: AppTheme.surfaceDecoration(
+            tint: AppTheme.accentWarm,
+            radius: 30,
+            muted: true,
+          ),
+          child: Row(
+            children: [
+              GameIconButton(
+                icon: Icons.arrow_back_rounded,
+                tint: AppTheme.accentPrimary,
+                onTap: () {
+                  context.read<SettingsCubit>().playClickSound();
+                  Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(height: 24),
-
-              // Tab control
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(width: 16),
-                    _buildTabButton('Bottles', 0),
-                    const SizedBox(width: 12),
-                    _buildTabButton('Contents', 1),
-                    const SizedBox(width: 12),
-                    _buildTabButton('Themes', 2),
-                    const SizedBox(width: 16),
+                    Text(
+                      'Style Shop',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Unlock new bottles, fills, and themes',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              
-              const SizedBox(height: 20),
-
-              // Content Area
-              Expanded(
-                child: BlocBuilder<ShopCubit, ShopState>(
-                  builder: (context, shop) {
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 20,
-                        alignment: WrapAlignment.center,
-                        children: _selectedTabIndex == 0
-                            ? BottleType.values.map((type) => _buildBottleCard(context, type, shop)).toList()
-                            : _selectedTabIndex == 1
-                                ? FillType.values.map((type) => _buildFillCard(context, type, shop)).toList()
-                                : ThemeType.values.map((type) => _buildThemeCard(context, type, shop)).toList(),
-                      ),
-                    );
-                  },
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
                 ),
+                decoration: AppTheme.chipDecoration(
+                  tint: AppTheme.accentGold,
+                  emphasized: true,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.monetization_on_rounded,
+                      color: AppTheme.accentGold,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${shop.coins}',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: AppTheme.surfaceDecoration(
+        tint: AppTheme.accentSecondary,
+        radius: 24,
+        muted: true,
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildTabButton(context, 'Bottles', 0)),
+          Expanded(child: _buildTabButton(context, 'Contents', 1)),
+          Expanded(child: _buildTabButton(context, 'Themes', 2)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(BuildContext context, String label, int index) {
+    final selected = _selectedTabIndex == index;
+    final tint = index == 0
+        ? AppTheme.accentPrimary
+        : index == 1
+        ? AppTheme.accentGold
+        : AppTheme.accentWarm;
+
+    return GamePressable(
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        setState(() => _selectedTabIndex = index);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: selected
+            ? AppTheme.surfaceDecoration(
+                tint: tint,
+                radius: 18,
+                highlighted: true,
+              )
+            : BoxDecoration(borderRadius: BorderRadius.circular(18)),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? AppTheme.textPrimary : AppTheme.textMuted,
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottleCard(
+    BuildContext context,
+    BottleType type,
+    ShopState shop,
+  ) {
+    final isSelected = type == shop.selectedType;
+    final unlocked = shop.isUnlocked(type);
+    const previewBottle = BottleModel(
+      id: 0,
+      colors: [
+        GameColors.blue,
+        GameColors.blue,
+        GameColors.green,
+        GameColors.red,
+      ],
+    );
+
+    return _buildShopCard(
+      context: context,
+      label: type.displayName,
+      isSelected: isSelected,
+      unlocked: unlocked,
+      affordable: shop.coins >= type.coinPrice,
+      price: type.coinPrice,
+      tint: AppTheme.accentPrimary,
+      preview: SizedBox(
+        width: 58,
+        height: 144,
+        child: CustomPaint(
+          painter: LiquidPainter(
+            bottle: previewBottle,
+            bottleType: type,
+            fillType: shop.selectedFill,
+          ),
+          size: const Size(58, 144),
+        ),
+      ),
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        context.read<SettingsCubit>().triggerSelectionHaptic();
+        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
+          return;
+        }
+        context.read<ShopCubit>().selectOrPurchase(type);
+      },
+    );
+  }
+
+  Widget _buildFillCard(BuildContext context, FillType type, ShopState shop) {
+    final isSelected = type == shop.selectedFill;
+    final unlocked = shop.isFillUnlocked(type);
+    const previewBottle = BottleModel(id: 0, colors: [GameColors.purple]);
+
+    return _buildShopCard(
+      context: context,
+      label: type.displayName,
+      isSelected: isSelected,
+      unlocked: unlocked,
+      affordable: shop.coins >= type.coinPrice,
+      price: type.coinPrice,
+      tint: AppTheme.accentGold,
+      preview: SizedBox(
+        width: 58,
+        height: 144,
+        child: CustomPaint(
+          painter: LiquidPainter(
+            bottle: previewBottle,
+            bottleType: shop.selectedType,
+            fillType: type,
+          ),
+          size: const Size(58, 144),
+        ),
+      ),
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        context.read<SettingsCubit>().triggerSelectionHaptic();
+        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
+          return;
+        }
+        context.read<ShopCubit>().selectOrPurchaseFill(type);
+      },
+    );
+  }
+
+  Widget _buildThemeCard(BuildContext context, ThemeType type, ShopState shop) {
+    final isSelected = type == shop.selectedTheme;
+    final unlocked = shop.isThemeUnlocked(type);
+
+    return _buildShopCard(
+      context: context,
+      label: type.displayName,
+      isSelected: isSelected,
+      unlocked: unlocked,
+      affordable: shop.coins >= type.coinPrice,
+      price: type.coinPrice,
+      tint: AppTheme.accentWarm,
+      preview: Container(
+        width: 82,
+        height: 144,
+        decoration: BoxDecoration(
+          gradient: type.gradient,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+      ),
+      onTap: () {
+        context.read<SettingsCubit>().playClickSound();
+        context.read<SettingsCubit>().triggerSelectionHaptic();
+        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
+          return;
+        }
+        context.read<ShopCubit>().selectOrPurchaseTheme(type);
+      },
+    );
+  }
+
+  Widget _buildShopCard({
+    required BuildContext context,
+    required String label,
+    required bool isSelected,
+    required bool unlocked,
+    required bool affordable,
+    required int price,
+    required Color tint,
+    required Widget preview,
+    required VoidCallback onTap,
+  }) {
+    final locked = !unlocked && price > 0;
+    final actionLabel = isSelected
+        ? 'Equipped'
+        : unlocked
+        ? 'Tap to use'
+        : 'Buy';
+
+    return SizedBox(
+      width: 118,
+      child: GamePressable(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(12),
+          decoration: AppTheme.cardDecoration(
+            isSelected: isSelected,
+            isLocked: locked,
+            glowColor: tint,
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _buildStatusBadge(
+                    text: isSelected
+                        ? 'Active'
+                        : unlocked
+                        ? 'Owned'
+                        : 'Locked',
+                    tint: isSelected
+                        ? tint
+                        : unlocked
+                        ? AppTheme.accentSuccess
+                        : AppTheme.textMuted,
+                  ),
+                  const Spacer(),
+                  if (locked)
+                    Icon(
+                      Icons.lock_rounded,
+                      color: AppTheme.textMuted.withValues(alpha: 0.85),
+                      size: 15,
+                    )
+                  else if (isSelected)
+                    Icon(Icons.check_circle_rounded, color: tint, size: 18),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                height: 156,
+                decoration: AppTheme.surfaceDecoration(
+                  tint: tint,
+                  radius: 20,
+                  muted: true,
+                ),
+                alignment: Alignment.center,
+                child: preview,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: isSelected ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: locked
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.monetization_on_rounded,
+                            size: 14,
+                            color: affordable
+                                ? AppTheme.accentGold
+                                : AppTheme.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$price',
+                            style: TextStyle(
+                              color: affordable
+                                  ? AppTheme.accentGold
+                                  : AppTheme.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        actionLabel,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: isSelected ? tint : AppTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -149,303 +493,20 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
-  Widget _buildTabButton(String title, int index) {
-    final isSelected = _selectedTabIndex == index;
-    return GestureDetector(
-      onTap: () {
-        context.read<SettingsCubit>().playClickSound();
-        setState(() => _selectedTabIndex = index);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.accentSecondary.withValues(alpha: 0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppTheme.accentSecondary : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? AppTheme.accentSecondary : AppTheme.textMuted,
-            fontSize: 16,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
+  Widget _buildStatusBadge({required String text, required Color tint}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
       ),
-    );
-  }
-
-  Widget _buildBottleCard(BuildContext context, BottleType type, ShopState shop) {
-    final isSelected = type == shop.selectedType;
-    final unlocked = shop.isUnlocked(type);
-    const previewBottle = BottleModel(
-      id: 0,
-      colors: [GameColors.blue, GameColors.blue, GameColors.green, GameColors.red],
-    );
-
-    return GestureDetector(
-      onTap: () {
-        context.read<SettingsCubit>().playClickSound();
-        context.read<SettingsCubit>().triggerSelectionHaptic();
-        final cubit = context.read<ShopCubit>();
-        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
-          return;
-        }
-        cubit.selectOrPurchase(type);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 100,
-        decoration: AppTheme.cardDecoration(isSelected: isSelected),
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 120,
-                      child: CustomPaint(
-                        painter: LiquidPainter(
-                          bottle: previewBottle,
-                          bottleType: type,
-                          fillType: shop.selectedFill,
-                        ),
-                        size: const Size(50, 120),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      type.displayName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isSelected ? AppTheme.accentSecondary : AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                    if (!unlocked && type.coinPrice > 0)
-                      _buildPriceTag(type.coinPrice, shop.coins),
-                  ],
-                ),
-              ),
-            ),
-            if (!unlocked && type.coinPrice > 0) _buildLockIcon(),
-            if (isSelected) _buildCheckIcon(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFillCard(BuildContext context, FillType type, ShopState shop) {
-    final isSelected = type == shop.selectedFill;
-    final unlocked = shop.isFillUnlocked(type);
-    const previewBottle = BottleModel(
-      id: 0,
-      colors: [GameColors.purple],
-    );
-
-    return GestureDetector(
-      onTap: () {
-        context.read<SettingsCubit>().playClickSound();
-        context.read<SettingsCubit>().triggerSelectionHaptic();
-        final cubit = context.read<ShopCubit>();
-        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
-          return;
-        }
-        cubit.selectOrPurchaseFill(type);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 100,
-        decoration: AppTheme.cardDecoration(isSelected: isSelected),
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 120,
-                      child: CustomPaint(
-                        painter: LiquidPainter(
-                          bottle: previewBottle,
-                          bottleType: shop.selectedType,
-                          fillType: type,
-                        ),
-                        size: const Size(50, 120),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      type.displayName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isSelected ? AppTheme.accentSecondary : AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                    if (!unlocked && type.coinPrice > 0)
-                      _buildPriceTag(type.coinPrice, shop.coins),
-                  ],
-                ),
-              ),
-            ),
-            if (!unlocked && type.coinPrice > 0) _buildLockIcon(),
-            if (isSelected) _buildCheckIcon(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeCard(BuildContext context, ThemeType type, ShopState shop) {
-    final isSelected = type == shop.selectedTheme;
-    final unlocked = shop.isThemeUnlocked(type);
-
-    return GestureDetector(
-      onTap: () {
-        context.read<SettingsCubit>().playClickSound();
-        context.read<SettingsCubit>().triggerSelectionHaptic();
-        final cubit = context.read<ShopCubit>();
-        if (!unlocked && type.coinPrice > 0 && shop.coins < type.coinPrice) {
-          return;
-        }
-        cubit.selectOrPurchaseTheme(type);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 100,
-        decoration: AppTheme.cardDecoration(isSelected: isSelected),
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        gradient: type.gradient,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      type.displayName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isSelected ? AppTheme.accentSecondary : AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                    if (!unlocked && type.coinPrice > 0)
-                      _buildPriceTag(type.coinPrice, shop.coins),
-                  ],
-                ),
-              ),
-            ),
-            if (!unlocked && type.coinPrice > 0) _buildLockIcon(),
-            if (isSelected) _buildCheckIcon(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriceTag(int price, int coins) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.monetization_on_rounded,
-              size: 14,
-              color: coins >= price ? AppTheme.accentGold : AppTheme.textMuted,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '$price',
-              style: TextStyle(
-                color: coins >= price ? AppTheme.accentGold : AppTheme.textMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-  }
-
-  Widget _buildLockIcon() {
-    return Positioned(
-      top: 8,
-      left: 8,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: AppTheme.bgDark.withValues(alpha: 0.7),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.lock_rounded,
-          color: AppTheme.textSecondary,
-          size: 16,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCheckIcon() {
-    return Positioned(
-      top: 4,
-      right: 4,
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.accentSecondary.withValues(alpha: 0.4),
-              blurRadius: 6,
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.check_circle_rounded,
-          color: AppTheme.accentSecondary,
-          size: 20,
+      child: Text(
+        text,
+        style: TextStyle(
+          color: tint,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
         ),
       ),
     );

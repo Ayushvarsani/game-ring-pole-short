@@ -1,81 +1,191 @@
 import 'package:flutter/material.dart';
 
-/// Centralized app theme with a premium, vibrant color palette.
-/// 
-/// Gradient backgrounds: Deep ocean blue → midnight purple
-/// Accents: Teal-cyan glow + soft violet highlights
+/// Shared visual system for the game's premium puzzle presentation.
 class AppTheme {
   AppTheme._();
 
-  // ── Primary Background Colors ──
-  static const Color bgDark = Color(0xFF0B0F2B);         // Deep midnight base
-  static const Color bgMedium = Color(0xFF131842);        // Card/surface dark
-  static const Color bgLight = Color(0xFF1B2254);         // Elevated surface
-  static const Color bgCard = Color(0xFF1E2561);          // Cards & dialogs
+  static const Color bgBase = Color(0xFF070E1A);
+  static const Color bgDark = Color(0xFF0B1527);
+  static const Color bgMedium = Color(0xFF122036);
+  static const Color bgLight = Color(0xFF1A2B45);
+  static const Color bgCard = Color(0xFF223553);
 
-  // ── Accent Colors ──
-  static const Color accentPrimary = Color(0xFF7B6CF6);   // Vibrant violet
-  static const Color accentSecondary = Color(0xFF42D9C8);  // Teal-cyan glow
-  static const Color accentWarm = Color(0xFFFF6B9D);       // Warm pink
-  static const Color accentGold = Color(0xFFFFD93D);       // Gold/coins
+  static const Color accentPrimary = Color(0xFF5CA8FF);
+  static const Color accentSecondary = Color(0xFF79E2D7);
+  static const Color accentWarm = Color(0xFFFF916C);
+  static const Color accentGold = Color(0xFFF2C35A);
+  static const Color accentSuccess = Color(0xFF84DF9A);
+  static const Color accentDanger = Color(0xFFFF7771);
 
-  // ── Text Colors ──
-  static const Color textPrimary = Color(0xFFF0F0FF);     // Near-white
-  static const Color textSecondary = Color(0xFFB0B4D6);   // Muted lavender
-  static const Color textMuted = Color(0xFF7B80A8);       // Subtle hints
+  static const Color textPrimary = Color(0xFFF4F7FF);
+  static const Color textSecondary = Color(0xFFB8C6DF);
+  static const Color textMuted = Color(0xFF7D8EA9);
 
-  // ── Gradients ──
+  static const double radiusSmall = 18;
+  static const double radiusMedium = 24;
+  static const double radiusLarge = 30;
+
+  static const EdgeInsets screenPadding = EdgeInsets.symmetric(
+    horizontal: 20,
+    vertical: 12,
+  );
+
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFF0F1535),  // Deep blue-purple top
-      Color(0xFF0B0F2B),  // Midnight bottom
-      Color(0xFF090D24),  // Deeper bottom fade
-    ],
-    stops: [0.0, 0.6, 1.0],
-  );
-
-  static const LinearGradient accentGradient = LinearGradient(
-    colors: [accentPrimary, accentSecondary],
+    colors: [Color(0xFF12223C), Color(0xFF0C1830), Color(0xFF070E1A)],
+    stops: [0.0, 0.45, 1.0],
   );
 
   static const LinearGradient buttonGradient = LinearGradient(
-    colors: [Color(0xFF7B6CF6), Color(0xFF42D9C8)],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF5CA8FF), Color(0xFF77D9F0), Color(0xFF79E2D7)],
+    stops: [0.0, 0.55, 1.0],
   );
 
   static const LinearGradient dialogGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E2561), Color(0xFF131842)],
+    colors: [Color(0xFF243654), Color(0xFF19283F), Color(0xFF101A2D)],
+    stops: [0.0, 0.45, 1.0],
   );
 
-  static const LinearGradient headerGradient = LinearGradient(
+  static const LinearGradient overlayGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFF131842),
-      Color(0x00131842),
-    ],
+    colors: [Color(0x660A1220), Color(0x220A1220), Color(0x88060C15)],
+    stops: [0.0, 0.35, 1.0],
   );
 
-  // ── Decorations ──
-  static BoxDecoration dialogDecoration({Color? borderColor}) {
-    final bColor = borderColor ?? accentPrimary;
-    return BoxDecoration(
-      gradient: dialogGradient,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: bColor.withValues(alpha: 0.35),
-        width: 1.5,
+  static ThemeData get materialTheme {
+    return ThemeData(
+      brightness: Brightness.dark,
+      useMaterial3: true,
+      scaffoldBackgroundColor: bgBase,
+      fontFamily: 'Roboto',
+      colorScheme: const ColorScheme.dark(
+        primary: accentPrimary,
+        secondary: accentSecondary,
+        surface: bgLight,
+        error: accentDanger,
       ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      splashColor: accentSecondary.withValues(alpha: 0.08),
+      highlightColor: Colors.transparent,
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 34,
+          fontWeight: FontWeight.w800,
+          height: 1.05,
+          letterSpacing: -0.6,
+        ),
+        headlineMedium: TextStyle(
+          color: textPrimary,
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+          letterSpacing: -0.3,
+        ),
+        titleLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+        titleMedium: TextStyle(
+          color: textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        bodyLarge: TextStyle(
+          color: textSecondary,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          height: 1.45,
+        ),
+        bodyMedium: TextStyle(
+          color: textSecondary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
+        labelLarge: TextStyle(
+          color: textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
+  static BoxDecoration surfaceDecoration({
+    Color? tint,
+    Color? borderColor,
+    double radius = radiusMedium,
+    bool highlighted = false,
+    bool muted = false,
+  }) {
+    final base = muted ? bgMedium : bgCard;
+    final blendedTint = tint == null
+        ? base
+        : _blend(base, tint, highlighted ? 0.26 : 0.14);
+    final effectiveBorder =
+        borderColor ??
+        (highlighted ? tint ?? accentPrimary : Colors.white).withValues(
+          alpha: highlighted ? 0.32 : 0.12,
+        );
+
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          _blend(blendedTint, Colors.white, 0.07),
+          blendedTint,
+          _blend(blendedTint, bgDark, 0.24),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: effectiveBorder, width: highlighted ? 1.5 : 1),
       boxShadow: [
         BoxShadow(
-          color: bColor.withValues(alpha: 0.25),
-          blurRadius: 30,
-          spreadRadius: 5,
+          color: Colors.black.withValues(alpha: muted ? 0.18 : 0.3),
+          blurRadius: 26,
+          offset: const Offset(0, 12),
+        ),
+        if (highlighted)
+          BoxShadow(
+            color: (tint ?? accentPrimary).withValues(alpha: 0.18),
+            blurRadius: 26,
+            spreadRadius: -6,
+            offset: const Offset(0, 8),
+          ),
+      ],
+    );
+  }
+
+  static BoxDecoration dialogDecoration({Color? borderColor, Color? tint}) {
+    final accent = borderColor ?? tint ?? accentPrimary;
+    return BoxDecoration(
+      gradient: dialogGradient,
+      borderRadius: BorderRadius.circular(radiusLarge),
+      border: Border.all(color: accent.withValues(alpha: 0.28), width: 1.2),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.38),
+          blurRadius: 36,
+          offset: const Offset(0, 20),
+        ),
+        BoxShadow(
+          color: accent.withValues(alpha: 0.14),
+          blurRadius: 28,
+          spreadRadius: -6,
+          offset: const Offset(0, 10),
         ),
       ],
     );
@@ -83,53 +193,72 @@ class AppTheme {
 
   static BoxDecoration cardDecoration({
     bool isSelected = false,
+    bool isLocked = false,
     Color? glowColor,
   }) {
-    final glow = glowColor ?? accentSecondary;
-    return BoxDecoration(
-      color: isSelected
-          ? accentPrimary.withValues(alpha: 0.2)
-          : Colors.white.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: isSelected
-            ? glow
-            : Colors.white.withValues(alpha: 0.1),
-        width: isSelected ? 2 : 1,
-      ),
-      boxShadow: isSelected
-          ? [
-              BoxShadow(
-                color: glow.withValues(alpha: 0.25),
-                blurRadius: 12,
-                spreadRadius: 1,
-              ),
-            ]
-          : null,
+    final tint = isSelected
+        ? (glowColor ?? accentSecondary)
+        : isLocked
+        ? textMuted
+        : accentPrimary;
+    return surfaceDecoration(
+      tint: tint,
+      radius: 22,
+      muted: !isSelected,
+      highlighted: isSelected,
+      borderColor: isLocked ? Colors.white.withValues(alpha: 0.08) : null,
     );
   }
 
-  static BoxDecoration actionButtonDecoration({bool isEnabled = true}) {
-    return BoxDecoration(
-      color: isEnabled 
-          ? Colors.white.withValues(alpha: 0.08) 
-          : Colors.white.withValues(alpha: 0.03),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: isEnabled ? 0.15 : 0.05),
-      ),
-      boxShadow: isEnabled
-          ? [
-              BoxShadow(
-                color: accentPrimary.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ]
-          : null,
+  static BoxDecoration actionButtonDecoration({
+    bool isEnabled = true,
+    bool isActive = false,
+    Color? accentColor,
+  }) {
+    final tint = accentColor ?? (isActive ? accentSecondary : accentPrimary);
+    return surfaceDecoration(
+      tint: tint,
+      radius: 24,
+      muted: !isEnabled,
+      highlighted: isEnabled && isActive,
+      borderColor: Colors.white.withValues(alpha: isEnabled ? 0.12 : 0.06),
     );
   }
 
-  /// System navigation bar color
-  static const Color systemNavColor = bgDark;
+  static BoxDecoration primaryButtonDecoration({double glowStrength = 0.3}) {
+    return BoxDecoration(
+      gradient: buttonGradient,
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      boxShadow: [
+        BoxShadow(
+          color: accentPrimary.withValues(alpha: glowStrength),
+          blurRadius: 28,
+          spreadRadius: -8,
+          offset: const Offset(0, 16),
+        ),
+        BoxShadow(
+          color: accentSecondary.withValues(alpha: glowStrength * 0.72),
+          blurRadius: 24,
+          spreadRadius: -10,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    );
+  }
+
+  static BoxDecoration chipDecoration({Color? tint, bool emphasized = false}) {
+    return surfaceDecoration(
+      tint: tint ?? accentPrimary,
+      radius: 999,
+      muted: !emphasized,
+      highlighted: emphasized,
+    );
+  }
+
+  static const Color systemNavColor = bgBase;
+
+  static Color _blend(Color base, Color tint, double amount) {
+    return Color.lerp(base, tint, amount) ?? base;
+  }
 }

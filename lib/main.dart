@@ -11,17 +11,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Lock to portrait mode for optimal gameplay
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   // Set system UI overlay style for immersive dark theme
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: AppTheme.systemNavColor,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppTheme.systemNavColor,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
   // ── Firebase initialization ──
   // Uncomment these lines when Firebase is configured:
@@ -46,16 +46,7 @@ class WaterSortApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Water Sort Puzzle',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: AppTheme.bgDark,
-          fontFamily: 'Roboto',
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.accentPrimary,
-            secondary: AppTheme.accentSecondary,
-            surface: AppTheme.bgLight,
-          ),
-        ),
+        theme: AppTheme.materialTheme,
         home: const SplashScreen(),
       ),
     );
