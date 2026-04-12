@@ -25,6 +25,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  static const String _homeLogoAsset = 'assets/images/logo.png';
+  static const String _gameName = 'Mind Color Pour';
+  static const LinearGradient _brandingTitleGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE8F7FF), Color(0xFF7AD6FF), Color(0xFF4DA3FF)],
+  );
+
   late final AnimationController _wobbleController;
   late final AnimationController _ambientController;
 
@@ -185,28 +193,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       children: [
                         _buildTopBar(context),
                         SizedBox(height: metrics.sectionSpacing),
-                        // The old layout wrapped the entire center section in a
-                        // taller action stack and animated CTA, which made the
-                        // landing page feel bottom-heavy. This simpler layout
-                        // keeps one compact header, centers the hero content in
-                        // the Expanded middle section, and reserves a single
-                        // static Play button at the bottom.
+                        // The logo now sizes against screen height instead of a
+                        // narrow hero flex slice, so the brand can lead the
+                        // screen while the bottle preview simply fills the
+                        // remaining Expanded space underneath.
                         Expanded(
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.topCenter,
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints: const BoxConstraints(maxWidth: 430),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Flexible(
-                                    flex: 4,
-                                    child: Center(
-                                      child: _buildHeroCopy(metrics),
-                                    ),
-                                  ),
+                                  _buildHeroCopy(context, metrics),
                                   SizedBox(height: metrics.sectionSpacing),
-                                  Flexible(
-                                    flex: 6,
+                                  Expanded(
                                     child: Center(
                                       child: _buildBottleStage(metrics),
                                     ),
@@ -241,38 +241,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final actionSpacing = compact ? 8.0 : 10.0;
         final actionPadding = compact ? 8.0 : 9.0;
 
-        return GlassCard(
-          tint: AppTheme.accentSecondary,
-          radius: 22,
-          blurSigma: 18,
-          muted: true,
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 12 : 14,
-            vertical: compact ? 10 : 11,
-          ),
+        return Align(
+          alignment: Alignment.centerRight,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: compact ? 34 : 36,
-                height: compact ? 34 : 36,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.accentSecondary, AppTheme.accentPrimary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  Icons.water_drop_rounded,
-                  color: Colors.white,
-                  size: compact ? 19 : 21,
-                ),
-              ),
-              SizedBox(width: compact ? 10 : 12),
-              Expanded(child: _HomeBrandCopy(compact: compact)),
-              SizedBox(width: actionSpacing),
               BlocBuilder<ShopCubit, ShopState>(
                 builder: (context, shop) {
                   return _HomeCoinChip(coins: shop.coins, compact: compact);
@@ -301,54 +275,94 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHeroCopy(_HomeViewportMetrics metrics) {
+  Widget _buildHeroCopy(BuildContext context, _HomeViewportMetrics metrics) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final logoHeight = (screenHeight * (metrics.isVeryShort ? 0.20 : 0.22))
+        .clamp(150.0, 210.0)
+        .toDouble();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: metrics.isVeryShort ? 12 : 14,
-            vertical: metrics.isVeryShort ? 6 : 8,
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accentPrimary.withValues(alpha: 0.28),
+                blurRadius: 56,
+                spreadRadius: -16,
+                offset: const Offset(0, 18),
+              ),
+              BoxShadow(
+                color: AppTheme.accentSecondary.withValues(alpha: 0.16),
+                blurRadius: 44,
+                spreadRadius: -22,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 24,
+                spreadRadius: -12,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
-          decoration: AppTheme.chipDecoration(
-            tint: AppTheme.accentSecondary,
-            emphasized: true,
-          ),
-          child: Text(
-            'PREMIUM CASUAL PUZZLE',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: metrics.isVeryShort ? 10 : 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.3,
+          child: Transform.scale(
+            scale: metrics.isVeryShort ? 1.0 : 1.04,
+            child: Image.asset(
+              _homeLogoAsset,
+              height: logoHeight,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
           ),
         ),
         SizedBox(height: metrics.heroSpacing),
-        Text(
-          'Sort every drop\ninto its perfect bottle',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: metrics.titleFontSize,
-            height: metrics.isVeryShort ? 1.0 : 0.98,
-            fontWeight: FontWeight.w900,
-            letterSpacing: metrics.isVeryShort ? -0.8 : -1.1,
-          ),
-        ),
-        SizedBox(height: metrics.copySpacing),
         ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: metrics.copyWidth),
-          child: Text(
-            'A clean strategy puzzle with smooth pours, subtle feedback, and enough depth to keep every level satisfying.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: metrics.bodyFontSize,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-              letterSpacing: 0.16,
-            ),
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                _gameName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  fontSize: metrics.gameTitleFontSize,
+                  height: 1.0,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: metrics.gameTitleLetterSpacing,
+                  shadows: [
+                    Shadow(
+                      color: AppTheme.accentPrimary.withValues(alpha: 0.26),
+                      blurRadius: 22,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+              ),
+              ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) => _brandingTitleGradient.createShader(
+                  Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                ),
+                child: Text(
+                  _gameName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: metrics.gameTitleFontSize,
+                    height: 1.0,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: metrics.gameTitleLetterSpacing,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -444,11 +458,9 @@ class _HomeViewportMetrics {
   const _HomeViewportMetrics({
     required this.isVeryShort,
     required this.sectionSpacing,
-    required this.titleFontSize,
-    required this.bodyFontSize,
+    required this.gameTitleFontSize,
+    required this.gameTitleLetterSpacing,
     required this.heroSpacing,
-    required this.copySpacing,
-    required this.copyWidth,
     required this.stageWidth,
     required this.stageHeight,
     required this.stagePositionScale,
@@ -460,11 +472,9 @@ class _HomeViewportMetrics {
 
   final bool isVeryShort;
   final double sectionSpacing;
-  final double titleFontSize;
-  final double bodyFontSize;
+  final double gameTitleFontSize;
+  final double gameTitleLetterSpacing;
   final double heroSpacing;
-  final double copySpacing;
-  final double copyWidth;
   final double stageWidth;
   final double stageHeight;
   final double stagePositionScale;
@@ -483,19 +493,17 @@ class _HomeViewportMetrics {
         .clamp(260.0, 332.0)
         .toDouble();
     final stageHeight =
-        (maxHeight * (isVeryShort ? 0.29 : (isShort ? 0.33 : 0.37)))
-            .clamp(196.0, 286.0)
+        (maxHeight * (isVeryShort ? 0.31 : (isShort ? 0.35 : 0.39)))
+            .clamp(208.0, 296.0)
             .toDouble();
     final stageScale = stageWidth / 332.0;
 
     return _HomeViewportMetrics(
       isVeryShort: isVeryShort,
       sectionSpacing: isVeryShort ? 10 : (isShort ? 14 : 18),
-      titleFontSize: isVeryShort ? 29 : (isShort ? 34 : 40),
-      bodyFontSize: isVeryShort ? 13 : 15,
-      heroSpacing: isVeryShort ? 12 : (isShort ? 16 : 20),
-      copySpacing: isVeryShort ? 10 : 14,
-      copyWidth: maxWidth < 360 ? 280 : 320,
+      gameTitleFontSize: maxWidth < 360 ? 30 : (maxWidth < 430 ? 33 : 36),
+      gameTitleLetterSpacing: isVeryShort ? 0.5 : 0.8,
+      heroSpacing: isVeryShort ? 12 : (isShort ? 14 : 16),
       stageWidth: stageWidth,
       stageHeight: stageHeight,
       stagePositionScale: stageScale,
@@ -503,45 +511,6 @@ class _HomeViewportMetrics {
       bottlePreviewHeight: (170 * stageScale).clamp(132.0, 170.0).toDouble(),
       playButtonHeight: isVeryShort ? 54 : 58,
       playButtonWidth: (maxWidth * 0.44).clamp(164.0, 208.0).toDouble(),
-    );
-  }
-}
-
-class _HomeBrandCopy extends StatelessWidget {
-  const _HomeBrandCopy({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Color Sort',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: compact ? 17 : 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.16,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          'Puzzle Studio',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppTheme.textMuted,
-            fontSize: compact ? 9 : 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.9,
-          ),
-        ),
-      ],
     );
   }
 }

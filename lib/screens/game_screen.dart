@@ -12,7 +12,6 @@ import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
 import '../painters/pouring_stream_painter.dart';
 import '../services/coin_service.dart';
-import '../services/level_generator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
@@ -217,7 +216,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    // Tight outer insets keep the gameplay chrome from stealing
+                    // height from the center board on shorter devices.
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final metrics = _GameScreenViewportMetrics.resolve(
@@ -260,80 +261,59 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   ) {
     final movesLeft = max(0, state.moveLimit - state.moveCount);
     final isLowMoves = movesLeft <= 3;
-    final difficulty = LevelGenerator.difficultyLabelForLevel(state.level);
-
-    return GlassCard(
-      tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentPrimary,
-      radius: 26,
-      blurSigma: 20,
-      muted: true,
-      padding: EdgeInsets.all(metrics.headerPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              GameIconButton(
-                icon: Icons.arrow_back_rounded,
-                tint: AppTheme.accentPrimary,
-                size: 20,
-                padding: const EdgeInsets.all(10),
-                onTap: () {
-                  context.read<SettingsCubit>().playClickSound();
-                  context.read<SettingsCubit>().triggerLightHaptic();
-                  Navigator.of(context).pop();
-                },
-              ),
-              SizedBox(width: metrics.innerSpacing),
-              Expanded(
-                child: _BoardHeaderCopy(
-                  titleSize: metrics.headerTitleSize,
-                  subtitleSize: metrics.headerSubtitleSize,
-                ),
-              ),
-              SizedBox(width: metrics.innerSpacing),
-              _BoardCountChip(
-                value: '${state.bottles.length}',
-                compact: metrics.isCompact,
-              ),
-            ],
-          ),
-          SizedBox(height: metrics.innerSpacing),
-          Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        GameIconButton(
+          icon: Icons.arrow_back_rounded,
+          tint: AppTheme.accentPrimary,
+          size: metrics.isCompact ? 18 : 19,
+          padding: EdgeInsets.all(metrics.backButtonPadding),
+          onTap: () {
+            context.read<SettingsCubit>().playClickSound();
+            context.read<SettingsCubit>().triggerLightHaptic();
+            Navigator.of(context).pop();
+          },
+        ),
+        SizedBox(width: metrics.innerSpacing),
+        // One compact header row keeps the board status visible while leaving
+        // most of the vertical space for the playable bottle area.
+        Expanded(
+          child: Row(
             children: [
               Expanded(
-                child: _CompactBoardStatCard(
-                  label: 'Level',
-                  value: '${state.level}',
-                  icon: Icons.auto_awesome_rounded,
-                  tint: AppTheme.accentPrimary,
-                  compact: metrics.isCompact,
-                ),
-              ),
-              SizedBox(width: metrics.innerSpacing),
-              Expanded(
-                child: _CompactBoardStatCard(
-                  label: 'Difficulty',
-                  value: difficulty,
-                  icon: Icons.insights_rounded,
+                child: _CompactHeaderChip(
+                  icon: Icons.grid_view_rounded,
+                  label: 'Board',
+                  value: '${state.bottles.length}',
                   tint: AppTheme.accentSecondary,
                   compact: metrics.isCompact,
                 ),
               ),
               SizedBox(width: metrics.innerSpacing),
               Expanded(
-                child: _CompactBoardStatCard(
+                child: _CompactHeaderChip(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'Level',
+                  value: '${state.level}',
+                  tint: AppTheme.accentPrimary,
+                  compact: metrics.isCompact,
+                ),
+              ),
+              SizedBox(width: metrics.innerSpacing),
+              Expanded(
+                child: _CompactHeaderChip(
+                  icon: Icons.swap_vert_rounded,
                   label: 'Moves',
                   value: '$movesLeft',
-                  icon: Icons.swap_vert_rounded,
                   tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentGold,
                   compact: metrics.isCompact,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -630,82 +610,75 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     GameState state,
     _GameScreenViewportMetrics metrics,
   ) {
-    return GlassCard(
-      tint: AppTheme.accentPrimary,
-      radius: 26,
-      muted: true,
-      padding: EdgeInsets.all(metrics.bottomBarPadding),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.undo_rounded,
-              label: 'Undo',
-              accentColor: AppTheme.accentPrimary,
-              onTap: state.moveHistory.isNotEmpty
-                  ? () {
-                      context.read<SettingsCubit>().playClickSound();
-                      context.read<SettingsCubit>().triggerLightHaptic();
-                      context.read<GameCubit>().undo();
-                    }
-                  : null,
-            ),
+    // The controls stay in one low-profile row so the footer reads quickly
+    // and the Expanded middle section keeps the most vertical space.
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            metrics: metrics,
+            icon: Icons.undo_rounded,
+            label: 'Undo',
+            accentColor: AppTheme.accentPrimary,
+            onTap: state.moveHistory.isNotEmpty
+                ? () {
+                    context.read<SettingsCubit>().playClickSound();
+                    context.read<SettingsCubit>().triggerLightHaptic();
+                    context.read<GameCubit>().undo();
+                  }
+                : null,
           ),
-          SizedBox(width: metrics.innerSpacing),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.lightbulb_outline_rounded,
-              label: 'Hint',
-              accentColor: AppTheme.accentGold,
-              badgeCount: state.hintsRemaining,
-              onTap:
-                  state.status == GameStatus.playing && state.hintsRemaining > 0
-                  ? () {
-                      context.read<SettingsCubit>().playClickSound();
-                      context.read<SettingsCubit>().triggerLightHaptic();
-                      context.read<GameCubit>().getHint();
-                    }
-                  : null,
-            ),
+        ),
+        SizedBox(width: metrics.innerSpacing),
+        Expanded(
+          child: _buildActionButton(
+            metrics: metrics,
+            icon: Icons.lightbulb_outline_rounded,
+            label: 'Hint',
+            accentColor: AppTheme.accentGold,
+            onTap:
+                state.status == GameStatus.playing && state.hintsRemaining > 0
+                ? () {
+                    context.read<SettingsCubit>().playClickSound();
+                    context.read<SettingsCubit>().triggerLightHaptic();
+                    context.read<GameCubit>().getHint();
+                  }
+                : null,
           ),
-          SizedBox(width: metrics.innerSpacing),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.refresh_rounded,
-              label: 'Restart',
-              accentColor: AppTheme.accentWarm,
-              onTap: () {
-                context.read<SettingsCubit>().playClickSound();
-                context.read<SettingsCubit>().triggerLightHaptic();
-                context.read<GameCubit>().restartLevel();
-              },
-            ),
+        ),
+        SizedBox(width: metrics.innerSpacing),
+        Expanded(
+          child: _buildActionButton(
+            metrics: metrics,
+            icon: Icons.refresh_rounded,
+            label: 'Restart',
+            accentColor: AppTheme.accentWarm,
+            onTap: () {
+              context.read<SettingsCubit>().playClickSound();
+              context.read<SettingsCubit>().triggerLightHaptic();
+              context.read<GameCubit>().restartLevel();
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildActionButton({
+    required _GameScreenViewportMetrics metrics,
     required IconData icon,
     required String label,
     required Color accentColor,
     VoidCallback? onTap,
-    int? badgeCount,
   }) {
-    final isActive = badgeCount != null && badgeCount > 0;
-
-    return GameButton(
-      label: label,
+    return _CompactActionButton(
       icon: icon,
+      label: label,
+      tint: accentColor,
       onTap: onTap,
-      accentColor: accentColor,
-      badgeCount: badgeCount,
-      emphasized: isActive,
-      minHeight: 76,
-      radius: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-      layout: GameButtonLayout.vertical,
+      compact: metrics.isCompact,
+      height: metrics.actionButtonHeight,
+      radius: metrics.actionButtonRadius,
     );
   }
 
@@ -979,177 +952,150 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
-class _BoardHeaderCopy extends StatelessWidget {
-  const _BoardHeaderCopy({required this.titleSize, required this.subtitleSize});
-
-  final double titleSize;
-  final double subtitleSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Puzzle Board',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: titleSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'Smooth pours. Clear reads.',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppTheme.textMuted,
-            fontSize: subtitleSize,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.32,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BoardCountChip extends StatelessWidget {
-  const _BoardCountChip({required this.value, required this.compact});
-
-  final String value;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      tint: AppTheme.accentSecondary,
-      radius: 18,
-      highlighted: true,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 8 : 10,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: compact ? 24 : 28,
-            height: compact ? 24 : 28,
-            decoration: BoxDecoration(
-              gradient: AppTheme.accentGradient(AppTheme.accentSecondary),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.grid_view_rounded,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'BOARD',
-                style: TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.9,
-                ),
-              ),
-              Text(
-                '$value Bottles',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: compact ? 11 : 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.18,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompactBoardStatCard extends StatelessWidget {
-  const _CompactBoardStatCard({
+class _CompactHeaderChip extends StatelessWidget {
+  const _CompactHeaderChip({
+    required this.icon,
     required this.label,
     required this.value,
-    required this.icon,
     required this.tint,
     required this.compact,
   });
 
+  final IconData icon;
   final String label;
   final String value;
-  final IconData icon;
   final Color tint;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = compact ? 14.0 : 15.0;
+    final iconSpacing = compact ? 4.0 : 5.0;
+
     return GlassCard(
       tint: tint,
-      radius: 20,
+      radius: compact ? 16 : 18,
+      blurSigma: 14,
       muted: true,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 9 : 10,
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 8 : 9,
       ),
-      child: Row(
-        children: [
-          Container(
-            width: compact ? 26 : 28,
-            height: compact ? 26 : 28,
-            decoration: BoxDecoration(
-              gradient: AppTheme.accentGradient(tint, intensity: 0.9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.white, size: compact ? 14 : 15),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textMuted,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.9,
-                  ),
+      child: SizedBox(
+        width: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: iconSize,
+                color: AppTheme.textPrimary.withValues(alpha: 0.82),
+              ),
+              SizedBox(width: iconSpacing),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$label ',
+                      style: TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: compact ? 9 : 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.16,
+                      ),
+                    ),
+                    TextSpan(
+                      text: value,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: compact ? 11 : 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: compact ? 11 : 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.16,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactActionButton extends StatelessWidget {
+  const _CompactActionButton({
+    required this.icon,
+    required this.label,
+    required this.tint,
+    required this.onTap,
+    required this.compact,
+    required this.height,
+    required this.radius,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color tint;
+  final VoidCallback? onTap;
+  final bool compact;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+
+    return GamePressable(
+      onTap: onTap,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: enabled ? 1 : 0.42,
+        child: DecoratedBox(
+          decoration: AppTheme.gradientButtonDecoration(
+            accentColor: tint,
+            isEnabled: enabled,
+            emphasized: false,
+            radius: radius,
+          ),
+          child: SizedBox(
+            height: height,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 10,
+                vertical: compact ? 6 : 8,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: Colors.white, size: compact ? 17 : 18),
+                  SizedBox(width: compact ? 6 : 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(
+                          alpha: enabled ? 1.0 : 0.74,
+                        ),
+                        fontSize: compact ? 13 : 14,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1238,31 +1184,28 @@ class _GameScreenViewportMetrics {
   const _GameScreenViewportMetrics({
     required this.isCompact,
     required this.sectionSpacing,
-    required this.headerPadding,
-    required this.bottomBarPadding,
     required this.innerSpacing,
-    required this.headerTitleSize,
-    required this.headerSubtitleSize,
+    required this.actionButtonHeight,
+    required this.actionButtonRadius,
+    required this.backButtonPadding,
   });
 
   final bool isCompact;
   final double sectionSpacing;
-  final double headerPadding;
-  final double bottomBarPadding;
   final double innerSpacing;
-  final double headerTitleSize;
-  final double headerSubtitleSize;
+  final double actionButtonHeight;
+  final double actionButtonRadius;
+  final double backButtonPadding;
 
   static _GameScreenViewportMetrics resolve(BoxConstraints constraints) {
     final isCompact = constraints.maxHeight < 740 || constraints.maxWidth < 370;
     return _GameScreenViewportMetrics(
       isCompact: isCompact,
-      sectionSpacing: isCompact ? 12 : 16,
-      headerPadding: isCompact ? 12 : 14,
-      bottomBarPadding: isCompact ? 10 : 12,
-      innerSpacing: isCompact ? 10 : 12,
-      headerTitleSize: isCompact ? 18 : 20,
-      headerSubtitleSize: isCompact ? 11 : 12,
+      sectionSpacing: isCompact ? 8 : 10,
+      innerSpacing: isCompact ? 6 : 8,
+      actionButtonHeight: isCompact ? 52 : 56,
+      actionButtonRadius: isCompact ? 16 : 18,
+      backButtonPadding: isCompact ? 8 : 9,
     );
   }
 }
