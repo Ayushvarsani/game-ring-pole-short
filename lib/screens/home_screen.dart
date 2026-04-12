@@ -216,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        SizedBox(height: metrics.sectionSpacing),
+                        SizedBox(height: 8),
                         Align(
                           alignment: Alignment.center,
                           child: _buildPlayButton(context, metrics),
@@ -510,7 +510,7 @@ class _HomeViewportMetrics {
       bottlePreviewWidth: (64 * stageScale).clamp(50.0, 64.0).toDouble(),
       bottlePreviewHeight: (170 * stageScale).clamp(132.0, 170.0).toDouble(),
       playButtonHeight: isVeryShort ? 54 : 58,
-      playButtonWidth: (maxWidth * 0.44).clamp(164.0, 208.0).toDouble(),
+      playButtonWidth: (maxWidth * 0.30).clamp(120.0, 160.0).toDouble(),
     );
   }
 }
@@ -642,7 +642,7 @@ class _HomePlayButton extends StatelessWidget {
                 color: Colors.white,
                 size: iconSize,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               const Text(
                 'Play',
                 style: TextStyle(

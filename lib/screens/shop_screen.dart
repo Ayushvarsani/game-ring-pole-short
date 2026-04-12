@@ -109,9 +109,9 @@ class _ShopScreenState extends State<ShopScreen> {
                           onChanged: _handleTabChange,
                         ),
                         SizedBox(height: metrics.sectionSpacing),
-                        // Only the catalog grid scrolls. Tighter gutters and
-                        // shorter cards keep more inventory visible above the
-                        // fold while the premium top chrome stays fixed.
+                        // Only the catalog list scrolls. Full-width horizontal
+                        // cards match the reference more closely and keep the
+                        // preview, status, and action readable at compact sizes.
                         Expanded(
                           child: BlocBuilder<ShopCubit, ShopState>(
                             builder: (context, shop) {
@@ -137,21 +137,27 @@ class _ShopScreenState extends State<ShopScreen> {
                                     ),
                                   );
                                 },
-                                child: GridView.builder(
-                                  key: ValueKey(_selectedTabIndex),
-                                  physics: const BouncingScrollPhysics(),
-                                  padding: EdgeInsets.only(
-                                    bottom: metrics.bottomPadding,
-                                  ),
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: metrics.columnCount,
-                                        mainAxisExtent: metrics.cardHeight,
-                                        crossAxisSpacing: metrics.gridSpacing,
-                                        mainAxisSpacing: metrics.gridSpacing,
+                                child: Align(
+                                  alignment: Alignment.topCenter,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: metrics.listMaxWidth,
+                                    ),
+                                    child: ListView.separated(
+                                      key: ValueKey(_selectedTabIndex),
+                                      physics: const BouncingScrollPhysics(),
+                                      padding: EdgeInsets.only(
+                                        bottom: metrics.bottomPadding,
                                       ),
-                                  itemCount: cards.length,
-                                  itemBuilder: (context, index) => cards[index],
+                                      itemCount: cards.length,
+                                      separatorBuilder: (context, index) =>
+                                          SizedBox(height: metrics.listSpacing),
+                                      itemBuilder: (context, index) => SizedBox(
+                                        height: metrics.cardHeight,
+                                        child: cards[index],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               );
                             },
@@ -209,16 +215,9 @@ class _ShopScreenState extends State<ShopScreen> {
       ],
     );
 
-    return ShopItemCard(
+    return ShopReferenceCard(
       compact: metrics.isCompact,
       title: type.displayName,
-      subtitle: isSelected
-          ? 'Currently equipped'
-          : locked
-          ? affordable
-                ? 'Unlock this bottle style'
-                : 'Need more coins'
-          : 'Ready to equip',
       status: isSelected
           ? ShopItemStatus.equipped
           : locked
@@ -226,8 +225,12 @@ class _ShopScreenState extends State<ShopScreen> {
           : ShopItemStatus.active,
       tint: AppTheme.accentPrimary,
       affordable: affordable,
-      price: locked ? type.coinPrice : null,
-      actionLabel: isSelected ? 'Equipped' : 'Equip',
+      buttonLabel: locked
+          ? '${type.coinPrice}'
+          : isSelected
+          ? 'EQUIPPED'
+          : 'EQUIP',
+      buttonIcon: locked ? Icons.monetization_on_rounded : null,
       preview: SizedBox(
         width: metrics.previewBottleWidth,
         height: metrics.previewBottleHeight,
@@ -261,16 +264,9 @@ class _ShopScreenState extends State<ShopScreen> {
     final affordable = shop.coins >= type.coinPrice;
     const previewBottle = BottleModel(id: 0, colors: [GameColors.purple]);
 
-    return ShopItemCard(
+    return ShopReferenceCard(
       compact: metrics.isCompact,
       title: type.displayName,
-      subtitle: isSelected
-          ? 'Currently active'
-          : locked
-          ? affordable
-                ? 'Unlock this pour style'
-                : 'Need more coins'
-          : 'Ready to pour',
       status: isSelected
           ? ShopItemStatus.equipped
           : locked
@@ -278,8 +274,12 @@ class _ShopScreenState extends State<ShopScreen> {
           : ShopItemStatus.active,
       tint: AppTheme.accentGold,
       affordable: affordable,
-      price: locked ? type.coinPrice : null,
-      actionLabel: isSelected ? 'Equipped' : 'Use',
+      buttonLabel: locked
+          ? '${type.coinPrice}'
+          : isSelected
+          ? 'EQUIPPED'
+          : 'EQUIP',
+      buttonIcon: locked ? Icons.monetization_on_rounded : null,
       preview: SizedBox(
         width: metrics.previewBottleWidth,
         height: metrics.previewBottleHeight,
@@ -312,16 +312,9 @@ class _ShopScreenState extends State<ShopScreen> {
     final locked = !unlocked && type.coinPrice > 0;
     final affordable = shop.coins >= type.coinPrice;
 
-    return ShopItemCard(
+    return ShopReferenceCard(
       compact: metrics.isCompact,
       title: type.displayName,
-      subtitle: isSelected
-          ? 'Currently applied'
-          : locked
-          ? affordable
-                ? 'Unlock this backdrop'
-                : 'Need more coins'
-          : 'Apply this theme',
       status: isSelected
           ? ShopItemStatus.equipped
           : locked
@@ -329,8 +322,12 @@ class _ShopScreenState extends State<ShopScreen> {
           : ShopItemStatus.active,
       tint: AppTheme.accentWarm,
       affordable: affordable,
-      price: locked ? type.coinPrice : null,
-      actionLabel: isSelected ? 'Equipped' : 'Apply',
+      buttonLabel: locked
+          ? '${type.coinPrice}'
+          : isSelected
+          ? 'EQUIPPED'
+          : 'EQUIP',
+      buttonIcon: locked ? Icons.monetization_on_rounded : null,
       preview: _ThemePreview(
         gradient: type.gradient,
         compact: metrics.isCompact,
@@ -351,8 +348,8 @@ class _ShopLayoutMetrics {
   const _ShopLayoutMetrics({
     required this.isCompact,
     required this.sectionSpacing,
-    required this.gridSpacing,
-    required this.columnCount,
+    required this.listSpacing,
+    required this.listMaxWidth,
     required this.cardHeight,
     required this.previewBottleWidth,
     required this.previewBottleHeight,
@@ -361,8 +358,8 @@ class _ShopLayoutMetrics {
 
   final bool isCompact;
   final double sectionSpacing;
-  final double gridSpacing;
-  final int columnCount;
+  final double listSpacing;
+  final double listMaxWidth;
   final double cardHeight;
   final double previewBottleWidth;
   final double previewBottleHeight;
@@ -376,17 +373,11 @@ class _ShopLayoutMetrics {
     return _ShopLayoutMetrics(
       isCompact: compact,
       sectionSpacing: compact ? 12 : 14,
-      gridSpacing: compact ? 12 : 14,
-      columnCount: width >= 760
-          ? 4
-          : width >= 560
-          ? 3
-          : width >= 330
-          ? 2
-          : 1,
-      cardHeight: compact ? 226 : 238,
-      previewBottleWidth: compact ? 36 : 40,
-      previewBottleHeight: compact ? 88 : 94,
+      listSpacing: compact ? 10 : 12,
+      listMaxWidth: 540,
+      cardHeight: compact ? 116 : 124,
+      previewBottleWidth: compact ? 28 : 30,
+      previewBottleHeight: compact ? 64 : 68,
       bottomPadding: compact ? 18 : 24,
     );
   }
@@ -596,33 +587,33 @@ class ShopTabBar extends StatelessWidget {
 
 enum ShopItemStatus { equipped, active, locked }
 
-class ShopItemCard extends StatelessWidget {
-  const ShopItemCard({
+class ShopReferenceCard extends StatelessWidget {
+  const ShopReferenceCard({
     super.key,
     required this.title,
-    required this.subtitle,
     required this.preview,
     required this.status,
     required this.tint,
     required this.affordable,
-    required this.actionLabel,
+    required this.buttonLabel,
     required this.onTap,
     required this.compact,
-    this.price,
+    this.buttonIcon,
   });
 
   final String title;
-  final String subtitle;
   final Widget preview;
   final ShopItemStatus status;
   final Color tint;
   final bool affordable;
-  final String actionLabel;
+  final String buttonLabel;
   final VoidCallback onTap;
   final bool compact;
-  final int? price;
+  final IconData? buttonIcon;
 
-  bool get _actionEnabled => status != ShopItemStatus.locked || affordable;
+  bool get _actionEnabled =>
+      status == ShopItemStatus.active ||
+      (status == ShopItemStatus.locked && affordable);
 
   Color _cardTint() {
     switch (status) {
@@ -642,18 +633,7 @@ class ShopItemCard extends StatelessWidget {
       case ShopItemStatus.active:
         return AppTheme.accentSuccess;
       case ShopItemStatus.locked:
-        return const Color(0xFF667085);
-    }
-  }
-
-  IconData _statusIcon() {
-    switch (status) {
-      case ShopItemStatus.equipped:
-        return Icons.check_circle_rounded;
-      case ShopItemStatus.active:
-        return Icons.auto_awesome_rounded;
-      case ShopItemStatus.locked:
-        return Icons.lock_rounded;
+        return const Color(0xFF6F5968);
     }
   }
 
@@ -670,98 +650,92 @@ class ShopItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previewHeight = compact ? 84.0 : 90.0;
-
     return GlassCard(
       tint: _cardTint(),
-      radius: compact ? 24 : 26,
+      radius: compact ? 22 : 24,
       blurSigma: 18,
       highlighted: status == ShopItemStatus.equipped,
       muted: status != ShopItemStatus.equipped,
-      padding: EdgeInsets.all(compact ? 12 : 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.all(compact ? 10 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              ShopBadge(
-                label: _badgeLabel(),
-                tint: _badgeTint(),
-                compact: compact,
+          Container(
+            width: compact ? 82 : 90,
+            height: compact ? 82 : 90,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(compact ? 18 : 20),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.06),
+                  Colors.black.withValues(alpha: 0.18),
+                ],
               ),
-              const Spacer(),
-              Container(
-                width: compact ? 28 : 30,
-                height: compact ? 28 : 30,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 16,
+                  spreadRadius: -10,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Center(
+              child: GlassCard(
+                tint: status == ShopItemStatus.locked
+                    ? AppTheme.textMuted
+                    : tint,
+                radius: compact ? 16 : 18,
+                blurSigma: 12,
+                muted: true,
+                padding: EdgeInsets.all(compact ? 8 : 10),
+                child: SizedBox.expand(child: Center(child: preview)),
+              ),
+            ),
+          ),
+          SizedBox(width: compact ? 12 : 14),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ShopBadge(
+                      label: _badgeLabel(),
+                      tint: _badgeTint(),
+                      compact: compact,
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 8 : 9),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: compact ? 16 : 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.08,
+                    height: 1.1,
                   ),
                 ),
-                alignment: Alignment.center,
-                child: Icon(
-                  _statusIcon(),
-                  size: compact ? 15 : 16,
-                  color: status == ShopItemStatus.locked
-                      ? Colors.white.withValues(alpha: 0.64)
-                      : _badgeTint(),
+                SizedBox(height: compact ? 10 : 12),
+                ShopActionButton(
+                  status: status,
+                  affordable: affordable,
+                  compact: compact,
+                  tint: tint,
+                  label: buttonLabel,
+                  icon: buttonIcon,
+                  onTap: _actionEnabled ? onTap : null,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Fixed preview and button heights keep the cards visually smaller
-          // without feeling cramped, so more inventory remains above the fold.
-          GlassCard(
-            tint: status == ShopItemStatus.locked ? AppTheme.textMuted : tint,
-            radius: compact ? 18 : 20,
-            blurSigma: 14,
-            muted: true,
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 8 : 10,
-              vertical: compact ? 8 : 10,
+              ],
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: previewHeight,
-              child: Center(child: preview),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: compact ? 14 : 15,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.16,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: compact ? 11 : 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.12,
-            ),
-          ),
-          const Spacer(),
-          ShopActionButton(
-            status: status,
-            price: price,
-            affordable: affordable,
-            compact: compact,
-            tint: tint,
-            label: actionLabel,
-            onTap: _actionEnabled ? onTap : null,
           ),
         ],
       ),
@@ -786,21 +760,28 @@ class ShopBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 9,
-        vertical: compact ? 4 : 5,
+        vertical: compact ? 3 : 4,
       ),
       decoration: BoxDecoration(
         gradient: AppTheme.accentGradient(tint, intensity: 0.84),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: AppTheme.premiumShadows(tint, emphasized: false),
+        boxShadow: [
+          BoxShadow(
+            color: tint.withValues(alpha: 0.18),
+            blurRadius: 16,
+            spreadRadius: -10,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
           color: Colors.white,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 8 : 9,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.7,
+          letterSpacing: 0.68,
           height: 1,
         ),
       ),
@@ -817,7 +798,7 @@ class ShopActionButton extends StatelessWidget {
     required this.tint,
     required this.label,
     required this.onTap,
-    this.price,
+    this.icon,
   });
 
   final ShopItemStatus status;
@@ -826,14 +807,14 @@ class ShopActionButton extends StatelessWidget {
   final Color tint;
   final String label;
   final VoidCallback? onTap;
-  final int? price;
+  final IconData? icon;
 
   Color _buttonTint() {
     switch (status) {
       case ShopItemStatus.equipped:
         return AppTheme.accentGold;
       case ShopItemStatus.active:
-        return AppTheme.accentSuccess;
+        return AppTheme.accentPrimary;
       case ShopItemStatus.locked:
         return affordable ? AppTheme.accentGold : const Color(0xFF5C667A);
     }
@@ -843,80 +824,77 @@ class ShopActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onTap != null;
     final buttonTint = _buttonTint();
+    final textAlpha = enabled ? 1.0 : 0.7;
 
     return GamePressable(
       onTap: onTap,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 180),
-        opacity: enabled ? 1.0 : 0.82,
+        opacity: enabled ? 1.0 : 0.86,
         child: Container(
-          height: compact ? 34 : 36,
+          height: compact ? 32 : 34,
+          constraints: BoxConstraints(minWidth: compact ? 110 : 120),
           decoration: BoxDecoration(
-            gradient: AppTheme.accentGradient(
-              buttonTint,
-              intensity: status == ShopItemStatus.equipped ? 1.0 : 0.84,
+            gradient: status == ShopItemStatus.locked
+                ? LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.06),
+                      Colors.white.withValues(alpha: 0.02),
+                    ],
+                  )
+                : AppTheme.accentGradient(
+                    buttonTint,
+                    intensity: status == ShopItemStatus.equipped ? 0.92 : 0.88,
+                  ),
+            borderRadius: BorderRadius.circular(compact ? 12 : 13),
+            border: Border.all(
+              color: Colors.white.withValues(
+                alpha: status == ShopItemStatus.locked ? 0.09 : 0.14,
+              ),
             ),
-            borderRadius: BorderRadius.circular(compact ? 15 : 16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            boxShadow: AppTheme.premiumShadows(
-              buttonTint,
-              emphasized: enabled && status != ShopItemStatus.locked,
-            ),
+            boxShadow: status == ShopItemStatus.locked
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : AppTheme.premiumShadows(
+                    buttonTint,
+                    emphasized: enabled && status != ShopItemStatus.locked,
+                  ),
           ),
           padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12),
           child: Center(
-            child: status == ShopItemStatus.locked
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.monetization_on_rounded,
-                        size: compact ? 14 : 15,
-                        color: Colors.white.withValues(
-                          alpha: enabled ? 1.0 : 0.78,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${price ?? 0}',
-                        style: TextStyle(
-                          color: Colors.white.withValues(
-                            alpha: enabled ? 1.0 : 0.78,
-                          ),
-                          fontSize: compact ? 12 : 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.18,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (status == ShopItemStatus.equipped) ...[
-                        Icon(
-                          Icons.check_rounded,
-                          size: compact ? 14 : 15,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 5),
-                      ],
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: compact ? 12 : 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.22,
-                          ),
-                        ),
-                      ),
-                    ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(
+                    icon,
+                    size: compact ? 13 : 14,
+                    color: Colors.white.withValues(alpha: textAlpha),
                   ),
+                  const SizedBox(width: 5),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: textAlpha),
+                      fontSize: compact ? 11 : 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -932,33 +910,32 @@ class _ThemePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = compact ? 82.0 : 88.0;
-    final height = compact ? 70.0 : 76.0;
+    final size = compact ? 54.0 : 58.0;
 
     return Container(
-      width: width,
-      height: height,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: BorderRadius.circular(compact ? 18 : 20),
+        borderRadius: BorderRadius.circular(compact ? 14 : 16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 18,
+            blurRadius: 16,
             spreadRadius: -10,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Stack(
         children: [
           Positioned(
-            left: 10,
-            top: 10,
+            left: 8,
+            top: 8,
             child: Container(
-              width: compact ? 14 : 16,
-              height: compact ? 14 : 16,
+              width: compact ? 10 : 12,
+              height: compact ? 10 : 12,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.22),
                 shape: BoxShape.circle,
@@ -966,11 +943,11 @@ class _ThemePreview extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 10,
-            top: 12,
+            right: 8,
+            top: 9,
             child: Container(
-              width: compact ? 20 : 22,
-              height: 6,
+              width: compact ? 14 : 16,
+              height: 5,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(999),
@@ -978,16 +955,16 @@ class _ThemePreview extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 12,
-            right: 12,
-            bottom: 12,
+            left: 8,
+            right: 8,
+            bottom: 8,
             child: GlassCard(
               tint: Colors.white,
-              radius: 14,
+              radius: 10,
               blurSigma: 10,
               muted: true,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: const SizedBox(height: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: const SizedBox(height: 6),
             ),
           ),
         ],
