@@ -425,8 +425,7 @@ class ShopTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    // The header only keeps navigation and currency so the catalog starts
-    // higher on the screen and feels more like a compact in-game storefront.
+
     return GlassCard(
       tint: theme.primaryAccent,
       radius: 24,
@@ -434,20 +433,53 @@ class ShopTopBar extends StatelessWidget {
       muted: true,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 10,
-        vertical: compact ? 8 : 9,
+        vertical: compact ? 7 : 8,
       ),
-      child: Row(
-        children: [
-          GameIconButton(
-            icon: Icons.arrow_back_rounded,
-            tint: theme.primaryAccent,
-            size: compact ? 18 : 19,
-            padding: EdgeInsets.all(compact ? 8 : 9),
-            onTap: onBack,
-          ),
-          const Spacer(),
-          _ShopCoinsChip(coins: coins, compact: compact),
-        ],
+      child: SizedBox(
+        height: compact ? 38 : 40,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GameIconButton(
+                icon: Icons.arrow_back_rounded,
+                tint: theme.primaryAccent,
+                size: compact ? 18 : 19,
+                padding: EdgeInsets.all(compact ? 8 : 9),
+                onTap: onBack,
+              ),
+            ),
+            IgnorePointer(
+              child: ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) =>
+                    theme.brandTextGradient.createShader(bounds),
+                child: Text(
+                  'Shop',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 18 : 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                    shadows: [
+                      Shadow(
+                        color: theme.brandShadowColor.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _ShopCoinsChip(coins: coins, compact: compact),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -515,16 +547,16 @@ class ShopTabBar extends StatelessWidget {
 
     return GlassCard(
       tint: currentTint,
-      radius: 22,
-      blurSigma: 18,
+      radius: 20,
+      blurSigma: 16,
       muted: true,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final itemWidth = constraints.maxWidth / items.length;
 
           return SizedBox(
-            height: compact ? 44 : 48,
+            height: compact ? 38 : 42,
             child: Stack(
               children: [
                 AnimatedPositioned(
@@ -535,12 +567,12 @@ class ShopTabBar extends StatelessWidget {
                   bottom: 0,
                   width: itemWidth,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
                     child: DecoratedBox(
                       decoration: AppTheme.gradientButtonDecoration(
                         accentColor: currentTint,
                         emphasized: true,
-                        radius: compact ? 16 : 18,
+                        radius: compact ? 14 : 16,
                         theme: theme,
                       ),
                       child: const SizedBox.expand(),
@@ -564,12 +596,12 @@ class ShopTabBar extends StatelessWidget {
                               children: [
                                 Icon(
                                   item.icon,
-                                  size: compact ? 15 : 16,
+                                  size: compact ? 14 : 15,
                                   color: Colors.white.withValues(
                                     alpha: selected ? 1.0 : 0.88,
                                   ),
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     item.label,
@@ -579,11 +611,11 @@ class ShopTabBar extends StatelessWidget {
                                       color: Colors.white.withValues(
                                         alpha: selected ? 1.0 : 0.88,
                                       ),
-                                      fontSize: compact ? 12 : 13,
+                                      fontSize: compact ? 11 : 12,
                                       fontWeight: selected
                                           ? FontWeight.w800
                                           : FontWeight.w600,
-                                      letterSpacing: selected ? 0.22 : 0.1,
+                                      letterSpacing: selected ? 0.18 : 0.08,
                                     ),
                                   ),
                                 ),
@@ -636,6 +668,8 @@ class ShopReferenceCard extends StatelessWidget {
       status == ShopItemStatus.active ||
       (status == ShopItemStatus.locked && affordable);
 
+  bool get _showsBadge => status != ShopItemStatus.active;
+
   Color _cardTint(AppThemeConfig theme) {
     switch (status) {
       case ShopItemStatus.equipped:
@@ -663,7 +697,7 @@ class ShopReferenceCard extends StatelessWidget {
       case ShopItemStatus.equipped:
         return 'Equipped';
       case ShopItemStatus.active:
-        return 'Active';
+        return '';
       case ShopItemStatus.locked:
         return 'Locked';
     }
@@ -682,15 +716,18 @@ class ShopReferenceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: ShopBadge(
-              label: _badgeLabel(),
-              tint: _badgeTint(theme),
-              compact: compact,
+          if (_showsBadge)
+            Align(
+              alignment: Alignment.topLeft,
+              child: ShopBadge(
+                label: _badgeLabel(),
+                tint: _badgeTint(theme),
+                compact: compact,
+              ),
             ),
+          SizedBox(
+            height: compact ? (_showsBadge ? 10 : 6) : (_showsBadge ? 12 : 8),
           ),
-          SizedBox(height: compact ? 10 : 12),
           Container(
             height: previewStageHeight,
             decoration: BoxDecoration(
@@ -714,19 +751,8 @@ class ShopReferenceCard extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: EdgeInsets.all(compact ? 8 : 10),
-              child: SizedBox.expand(
-                child: GlassCard(
-                  tint: status == ShopItemStatus.locked
-                      ? theme.textMuted
-                      : tint,
-                  radius: compact ? 16 : 18,
-                  blurSigma: 12,
-                  muted: true,
-                  padding: EdgeInsets.all(compact ? 8 : 10),
-                  child: Center(child: preview),
-                ),
-              ),
+              padding: EdgeInsets.all(compact ? 10 : 12),
+              child: Center(child: preview),
             ),
           ),
           SizedBox(height: compact ? 10 : 12),

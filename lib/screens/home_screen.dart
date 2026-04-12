@@ -500,7 +500,7 @@ class _BrandNameText extends StatelessWidget {
       color: Colors.white,
       fontSize: fontSize,
       fontWeight: FontWeight.w900,
-      letterSpacing: letterSpacing,
+      letterSpacing: letterSpacing + 0.1,
       height: 1,
     );
 
@@ -537,7 +537,19 @@ class _BrandNameText extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 maxLines: 1,
-                style: baseStyle,
+                style: baseStyle.copyWith(
+                  shadows: [
+                    Shadow(
+                      color: theme.brandShadowColor.withValues(alpha: 0.16),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                    Shadow(
+                      color: theme.brandGlowColor.withValues(alpha: 0.16),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
