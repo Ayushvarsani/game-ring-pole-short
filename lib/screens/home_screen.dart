@@ -8,6 +8,8 @@ import '../bloc/settings_cubit.dart';
 import '../bloc/shop_cubit.dart';
 import '../bloc/shop_state.dart';
 import '../models/bottle_model.dart';
+import '../models/bottle_type.dart';
+import '../models/fill_type.dart';
 import '../models/game_colors.dart';
 import '../services/level_progress_service.dart';
 import '../theme/app_theme.dart';
@@ -32,41 +34,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _wobbleController;
   late final AnimationController _ambientController;
 
-  final List<BottleModel> _demoBottles = const [
+  final List<BottleModel> _heroBottles = const [
     BottleModel(
       id: 0,
       colors: [
-        GameColors.red,
-        GameColors.blue,
-        GameColors.red,
-        GameColors.green,
+        GameColors.cyan,
+        GameColors.teal,
+        GameColors.cyan,
+        GameColors.cyan,
       ],
     ),
     BottleModel(
       id: 1,
       colors: [
-        GameColors.blue,
-        GameColors.green,
-        GameColors.yellow,
-        GameColors.red,
+        GameColors.pink,
+        GameColors.purple,
+        GameColors.pink,
+        GameColors.pink,
       ],
     ),
     BottleModel(
       id: 2,
       colors: [
-        GameColors.green,
         GameColors.yellow,
-        GameColors.blue,
+        GameColors.orange,
+        GameColors.yellow,
         GameColors.yellow,
       ],
     ),
     BottleModel(
       id: 3,
       colors: [
-        GameColors.yellow,
-        GameColors.red,
-        GameColors.green,
+        GameColors.cyan,
+        GameColors.purple,
         GameColors.blue,
+        GameColors.purple,
+      ],
+    ),
+    BottleModel(
+      id: 4,
+      colors: [
+        GameColors.lime,
+        GameColors.green,
+        GameColors.lime,
+        GameColors.green,
       ],
     ),
   ];
@@ -94,8 +105,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _startGame() async {
     context.read<SettingsCubit>().playClickSound();
     context.read<SettingsCubit>().triggerHeavyHaptic();
+
     final level = await LevelProgressService.getNextLevelToPlay();
     if (!mounted) return;
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BlocProvider(
@@ -152,14 +165,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: BoxDecoration(gradient: theme.backgroundGradient),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color.lerp(theme.backgroundDark, theme.backgroundBase, 0.3)!,
+              theme.backgroundBase,
+              Color.lerp(theme.backgroundDeep, Colors.black, 0.26)!,
+            ],
+            stops: const [0.0, 0.44, 1.0],
+          ),
+        ),
         child: Stack(
           children: [
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _ambientController,
                 builder: (context, child) {
-                  return _HomeAmbientBackground(
+                  return _HomeAtmosphere(
                     progress: _ambientController.value,
                     theme: theme,
                   );
@@ -167,534 +191,248 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
             SafeArea(
-              child: Padding(
-                padding: AppTheme.screenPadding,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final metrics = _HomeViewportMetrics.resolve(constraints);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildTopBar(context),
-                        SizedBox(height: metrics.topSpacing),
-                        // The home screen now reads as one composed hero: a
-                        // framed brand block, a showcased bottle stage, then a
-                        // tight CTA cluster. That keeps the layout simple while
-                        // giving each section a stronger sense of purpose.
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 430),
-                              child: Column(
-                                children: [
-                                  _buildHeroCopy(context, metrics),
-                                  SizedBox(height: metrics.brandToStageSpacing),
-                                  Expanded(
-                                    child: Center(
-                                      child: _buildBottleStage(metrics),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: metrics.stageToButtonSpacing,
-                                  ),
-                                  Align(
-                                    alignment: Alignment.center,
-                                    child: _buildPlayButton(context, metrics),
-                                  ),
-                                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final metrics = _HomeViewportMetrics.resolve(constraints);
+
+                  return BlocBuilder<ShopCubit, ShopState>(
+                    builder: (context, shop) {
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          metrics.outerPadding,
+                          metrics.topInset,
+                          metrics.outerPadding,
+                          metrics.bottomInset,
+                        ),
+                        child: Column(
+                          children: [
+                            _HomeUtilityRow(
+                              coins: shop.coins,
+                              metrics: metrics,
+                              onOpenShop: _openShop,
+                              onOpenSettings: _openSettings,
+                            ),
+                            SizedBox(height: metrics.brandGap),
+                            _HomeBrandBlock(
+                              logoAsset: _homeLogoAsset,
+                              title: _gameName,
+                              metrics: metrics,
+                            ),
+                            SizedBox(height: metrics.brandToHeroGap),
+                            Expanded(
+                              child: Center(
+                                child: AnimatedBuilder(
+                                  animation: Listenable.merge([
+                                    _ambientController,
+                                    _wobbleController,
+                                  ]),
+                                  builder: (context, child) {
+                                    return _BottleHeroShowcase(
+                                      bottles: _heroBottles,
+                                      bottleType: shop.selectedType,
+                                      fillType: shop.selectedFill,
+                                      metrics: metrics,
+                                      progress: _ambientController.value,
+                                      wobblePhase:
+                                          _wobbleController.value * 2 * pi,
+                                      onPlay: _startGame,
+                                      theme: theme,
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    );
-                  },
-                ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    final theme = AppTheme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 390;
-        final iconSize = compact ? 18.0 : 19.0;
-        final actionSpacing = compact ? 8.0 : 10.0;
-        final actionPadding = compact ? 8.0 : 9.0;
-
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              BlocBuilder<ShopCubit, ShopState>(
-                builder: (context, shop) {
-                  return _HomeCoinChip(coins: shop.coins, compact: compact);
-                },
-              ),
-              SizedBox(width: actionSpacing),
-              _HeaderActionButton(
-                icon: Icons.storefront_rounded,
-                tint: theme.warmAccent,
-                size: iconSize,
-                padding: actionPadding,
-                onTap: _openShop,
-              ),
-              SizedBox(width: actionSpacing),
-              _HeaderActionButton(
-                icon: Icons.tune_rounded,
-                tint: theme.primaryAccent,
-                size: iconSize,
-                padding: actionPadding,
-                onTap: _openSettings,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildHeroCopy(BuildContext context, _HomeViewportMetrics metrics) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final logoHeight = (screenHeight * (metrics.isVeryShort ? 0.20 : 0.22))
-        .clamp(146.0, 208.0)
-        .toDouble();
-
-    return _HeroBrandPanel(
-      logoAsset: _homeLogoAsset,
-      title: _gameName,
-      logoHeight: logoHeight,
-      titleFontSize: metrics.gameTitleFontSize,
-      titleLetterSpacing: metrics.gameTitleLetterSpacing,
-      titleSpacing: metrics.heroSpacing,
-      compact: metrics.isVeryShort,
-    );
-  }
-
-  Widget _buildBottleStage(_HomeViewportMetrics metrics) {
-    return BlocBuilder<ShopCubit, ShopState>(
-      builder: (context, shop) {
-        final theme = AppTheme.of(context);
-        return AnimatedBuilder(
-          animation: Listenable.merge([_wobbleController, _ambientController]),
-          builder: (context, child) {
-            final wobblePhase = _wobbleController.value * 2 * pi;
-            final ambientPhase = _ambientController.value * 2 * pi;
-
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: metrics.stageWidth,
-                maxHeight: metrics.stageHeight,
-              ),
-              child: AspectRatio(
-                aspectRatio: 332 / 286,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: _BottleShowcaseBase(
-                          progress: _ambientController.value,
-                          theme: theme,
-                          compact: metrics.isVeryShort,
-                        ),
-                      ),
-                    ),
-                    ...List.generate(_demoBottles.length, (index) {
-                      final baseX = [-108.0, -34.0, 34.0, 108.0][index];
-                      final baseY = [18.0, 0.0, 0.0, 18.0][index];
-                      final scale = [0.9, 1.0, 1.0, 0.9][index];
-                      final bob = sin(ambientPhase + index * 0.65) * 6;
-                      final tilt = sin(ambientPhase + index * 0.75) * 0.04;
-
-                      return Transform.translate(
-                        offset: Offset(
-                          baseX * metrics.stagePositionScale,
-                          (baseY + bob) * metrics.stagePositionScale,
-                        ),
-                        child: Transform.rotate(
-                          angle: tilt,
-                          child: Transform.scale(
-                            scale: scale,
-                            child: SizedBox(
-                              width: metrics.bottlePreviewWidth,
-                              height: metrics.bottlePreviewHeight,
-                              child: BottleWidget(
-                                bottle: _demoBottles[index],
-                                wobblePhase: wobblePhase,
-                                bottleType: shop.selectedType,
-                                fillType: shop.selectedFill,
-                                size: Size(
-                                  metrics.bottlePreviewWidth,
-                                  metrics.bottlePreviewHeight,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildPlayButton(BuildContext context, _HomeViewportMetrics metrics) {
-    final theme = AppTheme.of(context);
-    return AnimatedBuilder(
-      animation: _ambientController,
-      builder: (context, child) {
-        final pulse = (sin(_ambientController.value * 2 * pi) + 1) / 2;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _HomeSupportChip(
-              label: 'Relaxing Puzzle',
-              icon: Icons.spa_rounded,
-              compact: metrics.isVeryShort,
-            ),
-            SizedBox(height: metrics.ctaSpacing),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: metrics.playButtonWidth,
-                maxWidth: metrics.playButtonWidth,
-              ),
-              child: _PremiumHomePlayButton(
-                onTap: _startGame,
-                height: metrics.playButtonHeight,
-                iconSize: metrics.isVeryShort ? 19 : 21,
-                pulse: pulse,
-                theme: theme,
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
 
 class _HomeViewportMetrics {
   const _HomeViewportMetrics({
-    required this.isVeryShort,
-    required this.topSpacing,
-    required this.brandToStageSpacing,
-    required this.stageToButtonSpacing,
-    required this.ctaSpacing,
-    required this.gameTitleFontSize,
-    required this.gameTitleLetterSpacing,
-    required this.heroSpacing,
-    required this.stageWidth,
-    required this.stageHeight,
-    required this.stagePositionScale,
-    required this.bottlePreviewWidth,
-    required this.bottlePreviewHeight,
-    required this.playButtonHeight,
-    required this.playButtonWidth,
+    required this.compact,
+    required this.veryShort,
+    required this.outerPadding,
+    required this.topInset,
+    required this.bottomInset,
+    required this.utilityGap,
+    required this.utilityIconSize,
+    required this.utilityPadding,
+    required this.brandGap,
+    required this.logoHeight,
+    required this.brandTitleGap,
+    required this.titleFontSize,
+    required this.titleLetterSpacing,
+    required this.brandMaxWidth,
+    required this.brandToHeroGap,
+    required this.heroWidth,
+    required this.heroHeight,
+    required this.ringWidth,
+    required this.ringHeight,
+    required this.bottleWidth,
+    required this.bottleHeight,
+    required this.playOrbSize,
+    required this.playOrbBottomInset,
   });
 
-  final bool isVeryShort;
-  final double topSpacing;
-  final double brandToStageSpacing;
-  final double stageToButtonSpacing;
-  final double ctaSpacing;
-  final double gameTitleFontSize;
-  final double gameTitleLetterSpacing;
-  final double heroSpacing;
-  final double stageWidth;
-  final double stageHeight;
-  final double stagePositionScale;
-  final double bottlePreviewWidth;
-  final double bottlePreviewHeight;
-  final double playButtonHeight;
-  final double playButtonWidth;
+  final bool compact;
+  final bool veryShort;
+  final double outerPadding;
+  final double topInset;
+  final double bottomInset;
+  final double utilityGap;
+  final double utilityIconSize;
+  final double utilityPadding;
+  final double brandGap;
+  final double logoHeight;
+  final double brandTitleGap;
+  final double titleFontSize;
+  final double titleLetterSpacing;
+  final double brandMaxWidth;
+  final double brandToHeroGap;
+  final double heroWidth;
+  final double heroHeight;
+  final double ringWidth;
+  final double ringHeight;
+  final double bottleWidth;
+  final double bottleHeight;
+  final double playOrbSize;
+  final double playOrbBottomInset;
 
   static _HomeViewportMetrics resolve(BoxConstraints constraints) {
-    final maxWidth = constraints.maxWidth;
-    final maxHeight = constraints.maxHeight;
-    final isShort = maxHeight < 760;
-    final isVeryShort = maxHeight < 690;
+    final width = constraints.maxWidth;
+    final height = constraints.maxHeight;
+    final compact = width < 390 || height < 780;
+    final veryShort = height < 690;
 
-    final stageWidth = (maxWidth * (maxWidth < 390 ? 0.84 : 0.76))
-        .clamp(260.0, 332.0)
+    final heroWidth = (width * (width < 390 ? 0.9 : 0.82))
+        .clamp(290.0, 400.0)
         .toDouble();
-    final stageScale = stageWidth / 332.0;
+    final heroHeight = (height * (veryShort ? 0.42 : (compact ? 0.47 : 0.5)))
+        .clamp(300.0, 420.0)
+        .toDouble();
+    final ringWidth = heroWidth * 0.72;
 
     return _HomeViewportMetrics(
-      isVeryShort: isVeryShort,
-      topSpacing: isVeryShort ? 8 : (isShort ? 10 : 12),
-      brandToStageSpacing: isVeryShort ? 8 : (isShort ? 10 : 12),
-      stageToButtonSpacing: isVeryShort ? 8 : (isShort ? 10 : 12),
-      ctaSpacing: isVeryShort ? 8 : 10,
-      gameTitleFontSize: maxWidth < 360 ? 29 : (maxWidth < 430 ? 32 : 35),
-      gameTitleLetterSpacing: isVeryShort ? 0.5 : 0.9,
-      heroSpacing: isVeryShort ? 10 : (isShort ? 12 : 14),
-      stageWidth: stageWidth,
-      stageHeight: (maxHeight * (isVeryShort ? 0.29 : (isShort ? 0.33 : 0.36)))
-          .clamp(198.0, 282.0)
-          .toDouble(),
-      stagePositionScale: stageScale,
-      bottlePreviewWidth: (64 * stageScale).clamp(50.0, 64.0).toDouble(),
-      bottlePreviewHeight: (170 * stageScale).clamp(132.0, 170.0).toDouble(),
-      playButtonHeight: isVeryShort ? 50 : 56,
-      playButtonWidth: (maxWidth * 0.36).clamp(150.0, 188.0).toDouble(),
+      compact: compact,
+      veryShort: veryShort,
+      outerPadding: width < 360 ? 12 : 16,
+      topInset: compact ? 8 : 12,
+      bottomInset: veryShort ? 10 : 14,
+      utilityGap: compact ? 10 : 12,
+      utilityIconSize: compact ? 17 : 19,
+      utilityPadding: compact ? 8 : 9,
+      brandGap: compact ? 18 : 24,
+      logoHeight: veryShort ? 70 : (compact ? 78 : 90),
+      brandTitleGap: compact ? 8 : 10,
+      titleFontSize: width < 360 ? 22 : (compact ? 24 : 27),
+      titleLetterSpacing: compact ? 0.3 : 0.45,
+      brandMaxWidth: (width * 0.66).clamp(220.0, 320.0).toDouble(),
+      brandToHeroGap: veryShort ? 12 : (compact ? 18 : 24),
+      heroWidth: heroWidth,
+      heroHeight: heroHeight,
+      ringWidth: ringWidth,
+      ringHeight: ringWidth * 0.28,
+      bottleWidth: (heroWidth * 0.11).clamp(38.0, 50.0).toDouble(),
+      bottleHeight: (heroWidth * 0.315).clamp(120.0, 156.0).toDouble(),
+      playOrbSize: (heroWidth * 0.235).clamp(82.0, 96.0).toDouble(),
+      playOrbBottomInset: veryShort ? 0 : 6,
     );
   }
 }
 
-class _HeroBrandPanel extends StatelessWidget {
-  const _HeroBrandPanel({
+class _HomeUtilityRow extends StatelessWidget {
+  const _HomeUtilityRow({
+    required this.coins,
+    required this.metrics,
+    required this.onOpenShop,
+    required this.onOpenSettings,
+  });
+
+  final int coins;
+  final _HomeViewportMetrics metrics;
+  final VoidCallback onOpenShop;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
+    return Row(
+      children: [
+        GameIconButton(
+          icon: Icons.storefront_rounded,
+          tint: theme.warmAccent,
+          size: metrics.utilityIconSize,
+          padding: EdgeInsets.all(metrics.utilityPadding),
+          onTap: onOpenShop,
+        ),
+        SizedBox(width: metrics.utilityGap),
+        GameIconButton(
+          icon: Icons.settings_rounded,
+          tint: theme.primaryAccent,
+          size: metrics.utilityIconSize,
+          padding: EdgeInsets.all(metrics.utilityPadding),
+          onTap: onOpenSettings,
+        ),
+        const Spacer(),
+        _UtilityCoinChip(coins: coins, compact: metrics.compact),
+      ],
+    );
+  }
+}
+
+class _HomeBrandBlock extends StatelessWidget {
+  const _HomeBrandBlock({
     required this.logoAsset,
     required this.title,
-    required this.logoHeight,
-    required this.titleFontSize,
-    required this.titleLetterSpacing,
-    required this.titleSpacing,
-    required this.compact,
+    required this.metrics,
   });
 
   final String logoAsset;
   final String title;
-  final double logoHeight;
-  final double titleFontSize;
-  final double titleLetterSpacing;
-  final double titleSpacing;
-  final bool compact;
+  final _HomeViewportMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    final panelRadius = compact ? 28.0 : 34.0;
-
-    return GlassCard(
-      tint: theme.secondaryAccent,
-      radius: panelRadius,
-      blurSigma: 24,
-      muted: true,
-      padding: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(panelRadius),
-        border: Border.all(color: theme.surfaceStroke.withValues(alpha: 0.18)),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.1),
-            theme.surfaceStrong.withValues(alpha: 0.3),
-            theme.backgroundDeep.withValues(alpha: 0.18),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: metrics.brandMaxWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: metrics.logoHeight,
+              child: Image.asset(
+                logoAsset,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+            SizedBox(height: metrics.brandTitleGap),
+            _BrandNameText(
+              title: title,
+              fontSize: metrics.titleFontSize,
+              letterSpacing: metrics.titleLetterSpacing,
+            ),
           ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.ambientGlowSecondary.withValues(alpha: 0.08),
-            blurRadius: 42,
-            spreadRadius: -24,
-            offset: const Offset(0, 18),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 28,
-            spreadRadius: -16,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 22,
-            right: 22,
-            top: 0,
-            child: Container(
-              height: 22,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(panelRadius),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.18),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -24,
-            top: 26,
-            child: IgnorePointer(
-              child: Container(
-                width: 92,
-                height: 92,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.ambientGlow.withValues(alpha: 0.12),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              compact ? 18 : 22,
-              compact ? 18 : 22,
-              compact ? 18 : 22,
-              compact ? 16 : 18,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.ambientGlow.withValues(alpha: 0.28),
-                        blurRadius: 54,
-                        spreadRadius: -18,
-                        offset: const Offset(0, 18),
-                      ),
-                      BoxShadow(
-                        color: theme.ambientGlowSecondary.withValues(
-                          alpha: 0.18,
-                        ),
-                        blurRadius: 44,
-                        spreadRadius: -22,
-                        offset: const Offset(0, 10),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 24,
-                        spreadRadius: -12,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Transform.scale(
-                    scale: compact ? 1.0 : 1.03,
-                    child: Image.asset(
-                      logoAsset,
-                      height: logoHeight,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                ),
-                SizedBox(height: titleSpacing),
-                _PremiumGameTitle(
-                  title: title,
-                  fontSize: titleFontSize,
-                  letterSpacing: titleLetterSpacing,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 }
 
-class _HomeCoinChip extends StatelessWidget {
-  const _HomeCoinChip({required this.coins, required this.compact});
-
-  final int coins;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    return GlassCard(
-      tint: theme.goldAccent,
-      radius: 18,
-      highlighted: true,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 8 : 9,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.monetization_on_rounded,
-            color: theme.goldAccent,
-            size: compact ? 16 : 17,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$coins',
-            style: TextStyle(
-              color: theme.textPrimary,
-              fontSize: compact ? 13 : 14,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderActionButton extends StatelessWidget {
-  const _HeaderActionButton({
-    required this.icon,
-    required this.tint,
-    required this.size,
-    required this.padding,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color tint;
-  final double size;
-  final double padding;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        overlayColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.pressed)) {
-            return tint.withValues(alpha: 0.08);
-          }
-          return Colors.transparent;
-        }),
-        child: GlassCard(
-          tint: tint,
-          radius: 16,
-          muted: true,
-          padding: EdgeInsets.all(padding),
-          child: Icon(icon, color: theme.textPrimary, size: size),
-        ),
-      ),
-    );
-  }
-}
-
-class _PremiumGameTitle extends StatelessWidget {
-  const _PremiumGameTitle({
+class _BrandNameText extends StatelessWidget {
+  const _BrandNameText({
     required this.title,
     required this.fontSize,
     required this.letterSpacing,
@@ -707,172 +445,97 @@ class _PremiumGameTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    final words = title.split(' ');
-    final leading = words.isNotEmpty ? '${words.first} ' : title;
-    final middle = words.length > 1 ? '${words[1]} ' : '';
-    final trailing = words.length > 2 ? words.sublist(2).join(' ') : '';
-    final baseStyle = TextStyle(
-      color: Colors.white,
-      fontSize: fontSize,
-      height: 1.0,
-      fontWeight: FontWeight.w900,
-      letterSpacing: letterSpacing,
-    );
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 360),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: leading,
-                  style: baseStyle.copyWith(
-                    color: Colors.black.withValues(alpha: 0.24),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                TextSpan(
-                  text: middle,
-                  style: baseStyle.copyWith(
-                    color: Colors.black.withValues(alpha: 0.26),
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                TextSpan(
-                  text: trailing,
-                  style: baseStyle.copyWith(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        title,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: TextStyle(
+          color: theme.textPrimary.withValues(alpha: 0.96),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          letterSpacing: letterSpacing,
+          height: 1,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Transform.translate(
-            offset: const Offset(0, 1),
-            child: ShaderMask(
-              blendMode: BlendMode.srcIn,
-              shaderCallback: (bounds) =>
-                  theme.brandingGradient.createShader(bounds),
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: leading,
-                      style: baseStyle.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    TextSpan(
-                      text: middle,
-                      style: baseStyle.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    TextSpan(
-                      text: trailing,
-                      style: baseStyle.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Shadow(
+              color: theme.boardAura.withValues(alpha: 0.1),
+              blurRadius: 12,
             ),
-          ),
-          IgnorePointer(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: leading,
-                    style: baseStyle.copyWith(
-                      color: theme.textPrimary.withValues(alpha: 0.18),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  TextSpan(
-                    text: middle,
-                    style: baseStyle.copyWith(
-                      color: theme.textPrimary.withValues(alpha: 0.12),
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  TextSpan(
-                    text: trailing,
-                    style: baseStyle.copyWith(
-                      color: theme.textPrimary.withValues(alpha: 0.1),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HomeSupportChip extends StatelessWidget {
-  const _HomeSupportChip({
-    required this.label,
-    required this.icon,
-    required this.compact,
-  });
+class _UtilityCoinChip extends StatelessWidget {
+  const _UtilityCoinChip({required this.coins, required this.compact});
 
-  final String label;
-  final IconData icon;
+  final int coins;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+
     return GlassCard(
-      tint: theme.secondaryAccent,
+      tint: theme.goldAccent,
       radius: 999,
-      blurSigma: 18,
-      muted: true,
+      blurSigma: 14,
+      highlighted: true,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 12 : 14,
-        vertical: compact ? 7 : 8,
+        vertical: compact ? 8 : 9,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: theme.surfaceStroke.withValues(alpha: 0.16)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.08),
-            theme.surface.withValues(alpha: 0.4),
+            Colors.white.withValues(alpha: 0.14),
+            theme.goldAccent.withValues(alpha: 0.18),
             theme.backgroundDeep.withValues(alpha: 0.18),
           ],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 18,
+            spreadRadius: -12,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: theme.goldAccent.withValues(alpha: 0.14),
+            blurRadius: 20,
+            spreadRadius: -14,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            icon,
-            size: compact ? 13 : 14,
-            color: theme.secondaryAccent.withValues(alpha: 0.88),
+            Icons.monetization_on_rounded,
+            size: compact ? 15 : 16,
+            color: theme.goldAccent,
           ),
           const SizedBox(width: 6),
           Text(
-            label,
+            '$coins',
             style: TextStyle(
-              color: theme.textPrimary.withValues(alpha: 0.88),
-              fontSize: compact ? 11 : 12,
+              color: theme.textPrimary.withValues(alpha: 0.96),
+              fontSize: compact ? 12 : 13,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.28,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -881,162 +544,461 @@ class _HomeSupportChip extends StatelessWidget {
   }
 }
 
-class _PremiumHomePlayButton extends StatelessWidget {
-  const _PremiumHomePlayButton({
-    required this.onTap,
-    required this.height,
-    required this.iconSize,
-    required this.pulse,
+class _BottleHeroShowcase extends StatelessWidget {
+  const _BottleHeroShowcase({
+    required this.bottles,
+    required this.bottleType,
+    required this.fillType,
+    required this.metrics,
+    required this.progress,
+    required this.wobblePhase,
+    required this.onPlay,
     required this.theme,
   });
 
-  final VoidCallback onTap;
-  final double height;
-  final double iconSize;
-  final double pulse;
+  static const List<_HeroBottleSpec> _specs = [
+    _HeroBottleSpec(xFactor: -0.25, scale: 0.86, lift: 0, tilt: 0.018),
+    _HeroBottleSpec(xFactor: -0.12, scale: 0.94, lift: 10, tilt: 0.014),
+    _HeroBottleSpec(xFactor: 0, scale: 1.02, lift: 18, tilt: 0.012),
+    _HeroBottleSpec(xFactor: 0.12, scale: 0.94, lift: 10, tilt: -0.014),
+    _HeroBottleSpec(xFactor: 0.25, scale: 0.86, lift: 0, tilt: -0.018),
+  ];
+
+  final List<BottleModel> bottles;
+  final BottleType bottleType;
+  final FillType fillType;
+  final _HomeViewportMetrics metrics;
+  final double progress;
+  final double wobblePhase;
+  final VoidCallback onPlay;
   final AppThemeConfig theme;
 
   @override
   Widget build(BuildContext context) {
-    final glowStrength = 0.16 + (pulse * 0.08);
+    final pulse = (sin(progress * 2 * pi) + 1) / 2;
+    final ringBottom = metrics.playOrbSize * 0.46 + metrics.bottleHeight * 0.02;
+    final bottleBaseBottom = ringBottom + (metrics.ringHeight * 0.18);
+    final showcaseCount = min(bottles.length, _specs.length);
 
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
-      children: [
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: -12,
-          child: IgnorePointer(
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    theme.primaryAccent.withValues(alpha: glowStrength),
-                    theme.secondaryAccent.withValues(alpha: glowStrength * 0.7),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.56, 1.0],
-                ),
+    return SizedBox(
+      width: metrics.heroWidth,
+      height: metrics.heroHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _HeroGeometryPainter(progress: progress, theme: theme),
               ),
             ),
           ),
+          Positioned(
+            top: metrics.heroHeight * 0.12,
+            left: metrics.heroWidth * 0.2,
+            right: metrics.heroWidth * 0.2,
+            child: IgnorePointer(
+              child: _HeroGroundGlow(
+                width: metrics.heroWidth * 0.6,
+                height: metrics.heroHeight * 0.38,
+                color: theme.boardHalo.withValues(alpha: 0.1 + (pulse * 0.03)),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: ringBottom - (metrics.ringHeight * 0.2),
+            child: IgnorePointer(
+              child: _HeroGroundGlow(
+                width: metrics.ringWidth * 0.94,
+                height: metrics.heroHeight * 0.18,
+                color: theme.boardAura.withValues(alpha: 0.14 + (pulse * 0.04)),
+              ),
+            ),
+          ),
+          Positioned(
+            left: (metrics.heroWidth - metrics.ringWidth) / 2,
+            bottom: ringBottom,
+            child: _GlowingRing(
+              width: metrics.ringWidth,
+              height: metrics.ringHeight,
+              progress: progress,
+              theme: theme,
+            ),
+          ),
+          ...List.generate(showcaseCount, (index) {
+            final spec = _specs[index];
+            final bottle = bottles[index];
+            final bob =
+                sin(progress * 2 * pi + (index * 0.8)) *
+                (metrics.compact ? 1.8 : 2.6);
+            final tilt = sin(wobblePhase + (index * 0.7)) * spec.tilt;
+            final scaledWidth = metrics.bottleWidth * spec.scale;
+            final scaledHeight = metrics.bottleHeight * spec.scale;
+            final left =
+                (metrics.heroWidth / 2) +
+                (spec.xFactor * metrics.heroWidth) -
+                (scaledWidth / 2);
+
+            return Positioned(
+              left: left,
+              bottom: bottleBaseBottom + spec.lift + bob,
+              child: Transform.rotate(
+                angle: tilt,
+                child: SizedBox(
+                  width: scaledWidth,
+                  height: scaledHeight,
+                  child: BottleWidget(
+                    bottle: bottle,
+                    bottleType: bottleType,
+                    fillType: fillType,
+                    wobblePhase: wobblePhase,
+                    size: Size(scaledWidth, scaledHeight),
+                  ),
+                ),
+              ),
+            );
+          }),
+          Positioned(
+            bottom: metrics.playOrbBottomInset,
+            child: _IntegratedPlayOrb(
+              size: metrics.playOrbSize,
+              progress: progress,
+              onTap: onPlay,
+              theme: theme,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroBottleSpec {
+  const _HeroBottleSpec({
+    required this.xFactor,
+    required this.scale,
+    required this.lift,
+    required this.tilt,
+  });
+
+  final double xFactor;
+  final double scale;
+  final double lift;
+  final double tilt;
+}
+
+class _HeroGroundGlow extends StatelessWidget {
+  const _HeroGroundGlow({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          colors: [color, Colors.transparent],
+          stops: const [0.0, 1.0],
         ),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: onTap,
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) {
-                return Colors.white.withValues(alpha: 0.06);
-              }
-              return Colors.transparent;
-            }),
+      ),
+    );
+  }
+}
+
+class _GlowingRing extends StatelessWidget {
+  const _GlowingRing({
+    required this.width,
+    required this.height,
+    required this.progress,
+    required this.theme,
+  });
+
+  final double width;
+  final double height;
+  final double progress;
+  final AppThemeConfig theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        painter: _GlowingRingPainter(progress: progress, theme: theme),
+      ),
+    );
+  }
+}
+
+class _GlowingRingPainter extends CustomPainter {
+  const _GlowingRingPainter({required this.progress, required this.theme});
+
+  final double progress;
+  final AppThemeConfig theme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pulse = (sin(progress * 2 * pi) + 1) / 2;
+    final rect = Rect.fromLTWH(
+      size.width * 0.05,
+      size.height * 0.18,
+      size.width * 0.9,
+      size.height * 0.62,
+    );
+
+    final haloPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.height * 0.17
+      ..color = theme.boardHalo.withValues(alpha: 0.08 + (pulse * 0.03))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+    canvas.drawOval(rect, haloPaint);
+
+    final coreStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(2.0, size.height * 0.048)
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.white.withValues(alpha: 0.54),
+          theme.boardAura.withValues(alpha: 0.82),
+          theme.boardHalo.withValues(alpha: 0.78),
+          Colors.white.withValues(alpha: 0.48),
+        ],
+      ).createShader(rect);
+    canvas.drawOval(rect, coreStroke);
+
+    final innerStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.0, size.height * 0.018)
+      ..color = Colors.white.withValues(alpha: 0.18);
+    canvas.drawOval(rect.deflate(size.height * 0.12), innerStroke);
+
+    final topArc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.4, size.height * 0.03)
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          theme.boardHalo.withValues(alpha: 0.42),
+          Colors.transparent,
+        ],
+      ).createShader(rect.inflate(size.height * 0.18));
+    canvas.drawArc(
+      rect.inflate(size.height * 0.12),
+      -pi * 0.08,
+      pi * 0.34,
+      false,
+      topArc,
+    );
+
+    final lowerArc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.2, size.height * 0.028)
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          theme.boardAura.withValues(alpha: 0.34),
+          Colors.transparent,
+        ],
+      ).createShader(rect.inflate(size.height * 0.08));
+    canvas.drawArc(
+      rect.inflate(size.height * 0.06),
+      pi * 0.74,
+      pi * 0.18,
+      false,
+      lowerArc,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowingRingPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.theme != theme;
+  }
+}
+
+class _IntegratedPlayOrb extends StatelessWidget {
+  const _IntegratedPlayOrb({
+    required this.size,
+    required this.progress,
+    required this.onTap,
+    required this.theme,
+  });
+
+  final double size;
+  final double progress;
+  final VoidCallback onTap;
+  final AppThemeConfig theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final pulse = (sin(progress * 2 * pi) + 1) / 2;
+    final glowStrength = 0.12 + (pulse * 0.04);
+
+    return GamePressable(
+      onTap: onTap,
+      pressedScale: 0.96,
+      hoverScale: 1.015,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          IgnorePointer(
             child: Container(
-              height: height,
+              width: size * 1.08,
+              height: size * 1.08,
               decoration: BoxDecoration(
-                gradient: theme.primaryButtonGradient,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.24),
-                    blurRadius: 26,
-                    spreadRadius: -14,
-                    offset: const Offset(0, 16),
+                    color: theme.boardHalo.withValues(alpha: glowStrength),
+                    blurRadius: size * 0.26,
+                    spreadRadius: -(size * 0.08),
                   ),
                   BoxShadow(
-                    color: theme.primaryAccent.withValues(alpha: glowStrength),
-                    blurRadius: 28,
-                    spreadRadius: -10,
-                    offset: const Offset(0, 14),
-                  ),
-                  BoxShadow(
-                    color: theme.secondaryAccent.withValues(
-                      alpha: glowStrength * 0.74,
-                    ),
-                    blurRadius: 24,
-                    spreadRadius: -12,
-                    offset: const Offset(0, 10),
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: size * 0.2,
+                    spreadRadius: -(size * 0.08),
+                    offset: Offset(0, size * 0.12),
                   ),
                 ],
               ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 2,
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      height: height * 0.38,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.22),
-                            Colors.white.withValues(alpha: 0.02),
-                          ],
-                        ),
-                      ),
-                    ),
+            ),
+          ),
+          SizedBox(
+            width: size,
+            height: size,
+            child: CustomPaint(
+              painter: _PlayOrbFramePainter(progress: progress, theme: theme),
+              child: GlassCard(
+                tint: theme.secondaryAccent,
+                radius: size / 2,
+                blurSigma: 18,
+                muted: true,
+                padding: EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size / 2),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
                   ),
-                  Positioned(
-                    left: 18,
-                    right: 18,
-                    bottom: 8,
-                    child: Container(
-                      height: 1.2,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.white.withValues(alpha: 0.24),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.14),
+                      theme.surface.withValues(alpha: 0.56),
+                      theme.backgroundDeep.withValues(alpha: 0.76),
+                    ],
                   ),
-                  Center(
-                    child: Row(
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.boardAura.withValues(alpha: glowStrength),
+                      blurRadius: size * 0.22,
+                      spreadRadius: -(size * 0.12),
+                      offset: Offset(0, size * 0.08),
+                    ),
+                  ],
+                ),
+                child: SizedBox.expand(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: size * 0.14),
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: iconSize,
+                          color: Colors.white.withValues(alpha: 0.96),
+                          size: size * 0.29,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(height: size * 0.01),
                         Text(
                           'Play',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: height < 54 ? 17 : 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.44,
+                            color: Colors.white.withValues(alpha: 0.94),
+                            fontSize: size * 0.16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _HomeAmbientBackground extends StatelessWidget {
-  const _HomeAmbientBackground({required this.progress, required this.theme});
+class _PlayOrbFramePainter extends CustomPainter {
+  const _PlayOrbFramePainter({required this.progress, required this.theme});
+
+  final double progress;
+  final AppThemeConfig theme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pulse = (sin(progress * 2 * pi) + 1) / 2;
+    final center = size.center(Offset.zero);
+    final radius = size.width * 0.46;
+
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.045
+      ..color = theme.boardAura.withValues(alpha: 0.08 + (pulse * 0.03))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    canvas.drawCircle(center, radius, glowPaint);
+
+    final edgePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.012
+      ..color = Colors.white.withValues(alpha: 0.16);
+    canvas.drawCircle(center, radius - (size.width * 0.03), edgePaint);
+
+    final accentPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.02
+      ..shader = SweepGradient(
+        startAngle: -pi * 0.5,
+        endAngle: pi * 1.5,
+        colors: [
+          Colors.transparent,
+          theme.boardHalo.withValues(alpha: 0.48),
+          Colors.transparent,
+          theme.boardAura.withValues(alpha: 0.42),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.18, 0.42, 0.72, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - (size.width * 0.02)),
+      -pi * 0.28,
+      pi * 0.92,
+      false,
+      accentPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlayOrbFramePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.theme != theme;
+  }
+}
+
+class _HomeAtmosphere extends StatelessWidget {
+  const _HomeAtmosphere({required this.progress, required this.theme});
 
   final double progress;
   final AppThemeConfig theme;
@@ -1051,36 +1013,32 @@ class _HomeAmbientBackground extends StatelessWidget {
 
           return Stack(
             children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(gradient: theme.overlayGradient),
-                ),
-              ),
               Positioned(
-                top: -height * 0.04,
+                top: -height * 0.06,
                 right: -width * 0.12,
-                child: _AmbientGlowBlob(
+                child: _AtmosphereBloom(
                   width: width * 0.62,
-                  height: height * 0.34,
-                  color: theme.ambientGlowSecondary.withValues(alpha: 0.12),
-                ),
-              ),
-              Positioned(
-                left: -width * 0.16,
-                top: height * 0.26,
-                child: _AmbientGlowBlob(
-                  width: width * 0.58,
                   height: height * 0.3,
-                  color: theme.ambientGlow.withValues(alpha: 0.1),
+                  color: theme.ambientGlowSecondary.withValues(alpha: 0.08),
                 ),
               ),
               Positioned(
-                right: -width * 0.04,
-                bottom: height * 0.08,
-                child: _AmbientGlowBlob(
-                  width: width * 0.42,
-                  height: height * 0.26,
-                  color: theme.ambientGlowWarm.withValues(alpha: 0.08),
+                left: -width * 0.14,
+                top: height * 0.26,
+                child: _AtmosphereBloom(
+                  width: width * 0.52,
+                  height: height * 0.24,
+                  color: theme.ambientGlow.withValues(alpha: 0.08),
+                ),
+              ),
+              Positioned(
+                left: width * 0.22,
+                right: width * 0.22,
+                bottom: -height * 0.08,
+                child: _AtmosphereBloom(
+                  width: width * 0.4,
+                  height: height * 0.2,
+                  color: theme.boardAura.withValues(alpha: 0.06),
                 ),
               ),
               Positioned.fill(
@@ -1107,8 +1065,8 @@ class _HomeAmbientBackground extends StatelessWidget {
   }
 }
 
-class _AmbientGlowBlob extends StatelessWidget {
-  const _AmbientGlowBlob({
+class _AtmosphereBloom extends StatelessWidget {
+  const _AtmosphereBloom({
     required this.width,
     required this.height,
     required this.color,
@@ -1133,185 +1091,61 @@ class _AmbientGlowBlob extends StatelessWidget {
   }
 }
 
-class _BottleShowcaseBase extends StatelessWidget {
-  const _BottleShowcaseBase({
-    required this.progress,
-    required this.theme,
-    required this.compact,
-  });
+class _HeroGeometryPainter extends CustomPainter {
+  const _HeroGeometryPainter({required this.progress, required this.theme});
 
   final double progress;
   final AppThemeConfig theme;
-  final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        final pulse = (sin(progress * 2 * pi) + 1) / 2;
+  void paint(Canvas canvas, Size size) {
+    final pulse = (sin(progress * 2 * pi) + 1) / 2;
+    final linePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = theme.surfaceStroke.withValues(alpha: 0.05);
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Align(
-              alignment: const Alignment(0, -0.08),
-              child: Container(
-                width: width * 0.92,
-                height: height * 0.86,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.boardAura.withValues(alpha: 0.18 + (pulse * 0.04)),
-                      theme.boardHalo.withValues(alpha: 0.09),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.46, 1.0],
-                  ),
-                ),
-              ),
-            ),
-            Align(
-              alignment: const Alignment(0, -0.16),
-              child: Container(
-                width: width * 0.74,
-                height: height * 0.46,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.06),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Align(
-              alignment: const Alignment(0, 0.82),
-              child: SizedBox(
-                width: width * 0.82,
-                height: compact ? 74 : 82,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      bottom: 0,
-                      child: Container(
-                        height: compact ? 24 : 28,
-                        decoration: BoxDecoration(
-                          gradient: RadialGradient(
-                            colors: [
-                              theme.boardAura.withValues(
-                                alpha: 0.18 + (pulse * 0.05),
-                              ),
-                              Colors.transparent,
-                            ],
-                            stops: const [0.0, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: compact ? 10 : 12,
-                      child: Container(
-                        width: width * 0.58,
-                        height: compact ? 30 : 34,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              theme.surfaceStrong.withValues(alpha: 0.74),
-                              theme.surface.withValues(alpha: 0.92),
-                              theme.backgroundDeep.withValues(alpha: 0.84),
-                            ],
-                          ),
-                          border: Border.all(
-                            color: theme.surfaceStroke.withValues(alpha: 0.2),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.22),
-                              blurRadius: 18,
-                              spreadRadius: -10,
-                              offset: const Offset(0, 12),
-                            ),
-                            BoxShadow(
-                              color: theme.boardAura.withValues(alpha: 0.12),
-                              blurRadius: 24,
-                              spreadRadius: -14,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              left: 10,
-                              right: 10,
-                              top: 4,
-                              child: Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white.withValues(alpha: 0.18),
-                                      Colors.white.withValues(alpha: 0.0),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Align(
-                              child: Container(
-                                width: width * 0.26,
-                                height: 2,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.transparent,
-                                      theme.secondaryAccent.withValues(
-                                        alpha: 0.34,
-                                      ),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: compact ? 34 : 38,
-                      child: Container(
-                        width: width * 0.46,
-                        height: compact ? 12 : 14,
-                        decoration: BoxDecoration(
-                          gradient: RadialGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.08),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final accentPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = theme.boardHalo.withValues(alpha: 0.05 + (pulse * 0.015));
+
+    final frame = Path()
+      ..moveTo(size.width * 0.24, size.height * 0.14)
+      ..lineTo(size.width * 0.5, size.height * 0.08)
+      ..lineTo(size.width * 0.76, size.height * 0.14)
+      ..lineTo(size.width * 0.84, size.height * 0.54)
+      ..lineTo(size.width * 0.7, size.height * 0.86)
+      ..lineTo(size.width * 0.3, size.height * 0.86)
+      ..lineTo(size.width * 0.16, size.height * 0.54)
+      ..close();
+    canvas.drawPath(frame, linePaint);
+    canvas.drawLine(
+      Offset(size.width * 0.32, size.height * 0.22),
+      Offset(size.width * 0.68, size.height * 0.22),
+      accentPaint,
     );
+
+    final orbitRect = Rect.fromCircle(
+      center: Offset(size.width * 0.5, size.height * 0.6),
+      radius: size.width * 0.36,
+    );
+    final orbitPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          theme.boardAura.withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+      ).createShader(orbitRect);
+    canvas.drawArc(orbitRect, pi * 0.92, pi * 0.8, false, orbitPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroGeometryPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.theme != theme;
   }
 }
 
@@ -1324,61 +1158,63 @@ class _HomeBackdropPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final phase = progress * 2 * pi;
-    final orbCenters = [
-      Offset(size.width * 0.82 + sin(phase) * 12, size.height * 0.16),
-      Offset(size.width * 0.14 + cos(phase * 0.7) * 14, size.height * 0.72),
-      Offset(size.width * 0.52 + sin(phase * 0.9) * 16, size.height * 0.42),
-    ];
-    final orbColors = [
-      theme.ambientGlow.withValues(alpha: 0.14),
-      theme.ambientGlowSecondary.withValues(alpha: 0.1),
-      theme.ambientGlowWarm.withValues(alpha: 0.08),
-    ];
-    final orbRadii = [160.0, 180.0, 120.0];
+    final center = Offset(size.width * 0.5, size.height * 0.62);
 
-    for (int i = 0; i < orbCenters.length; i++) {
-      final paint = Paint()
-        ..shader =
-            RadialGradient(
-              colors: [orbColors[i], Colors.transparent],
-              stops: const [0.0, 1.0],
-            ).createShader(
-              Rect.fromCircle(center: orbCenters[i], radius: orbRadii[i]),
-            );
-      canvas.drawCircle(orbCenters[i], orbRadii[i], paint);
-    }
+    final framePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = theme.surfaceStroke.withValues(alpha: 0.04);
 
-    final beamPaint = Paint()
-      ..shader =
-          LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white.withValues(alpha: 0.07), Colors.transparent],
-          ).createShader(
-            Rect.fromLTWH(
-              size.width * 0.24,
-              0,
-              size.width * 0.52,
-              size.height * 0.44,
-            ),
-          );
-    final beamPath = Path()
-      ..moveTo(size.width * 0.38, 0)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.26,
-        size.width * 0.28,
-        size.height * 0.5,
-      )
-      ..lineTo(size.width * 0.72, size.height * 0.5)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.26,
-        size.width * 0.62,
-        0,
-      )
+    final frame = Path()
+      ..moveTo(size.width * 0.24, size.height * 0.08)
+      ..lineTo(size.width * 0.5, size.height * 0.03)
+      ..lineTo(size.width * 0.76, size.height * 0.08)
+      ..lineTo(size.width * 0.88, size.height * 0.34)
+      ..lineTo(size.width * 0.74, size.height * 0.9)
+      ..lineTo(size.width * 0.26, size.height * 0.9)
+      ..lineTo(size.width * 0.12, size.height * 0.34)
       ..close();
-    canvas.drawPath(beamPath, beamPaint);
+    canvas.drawPath(frame, framePaint);
+
+    canvas.drawLine(
+      Offset(size.width * 0.5, size.height * 0.03),
+      Offset(size.width * 0.5, size.height * 0.28),
+      framePaint,
+    );
+
+    final orbitRect = Rect.fromCircle(
+      center: center,
+      radius: size.width * 0.44,
+    );
+    final orbitPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          theme.boardAura.withValues(alpha: 0.07),
+          Colors.transparent,
+        ],
+      ).createShader(orbitRect);
+    canvas.drawArc(
+      orbitRect,
+      pi * (0.84 + (sin(phase * 0.5) * 0.02)),
+      pi * 0.92,
+      false,
+      orbitPaint,
+    );
+
+    final glowPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              theme.boardAura.withValues(alpha: 0.04),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(center: center, radius: size.width * 0.28),
+          );
+    canvas.drawCircle(center, size.width * 0.28, glowPaint);
   }
 
   @override
@@ -1397,33 +1233,21 @@ class _AmbientParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final phase = progress * 2 * pi;
     final colors = [
-      theme.textPrimary.withValues(alpha: 0.08),
-      theme.ambientGlow.withValues(alpha: 0.1),
-      theme.ambientGlowSecondary.withValues(alpha: 0.09),
-      theme.goldAccent.withValues(alpha: 0.07),
+      theme.textPrimary.withValues(alpha: 0.05),
+      theme.ambientGlow.withValues(alpha: 0.05),
+      theme.ambientGlowSecondary.withValues(alpha: 0.05),
     ];
 
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 12; i++) {
       final dx =
-          size.width * (0.08 + (((i * 37) % 100) / 100) * 0.84) +
-          sin(phase * (0.65 + (i % 5) * 0.08) + i) * 10;
+          size.width * (0.08 + ((((i * 37) % 100) / 100) * 0.84)) +
+          sin((phase * (0.58 + ((i % 5) * 0.06))) + i) * 6;
       final dy =
-          size.height * (0.1 + (((i * 23) % 100) / 100) * 0.74) +
-          cos(phase * (0.54 + (i % 4) * 0.06) + i * 0.8) * 8;
-      final radius = i % 4 == 0 ? 2.1 : 1.25;
+          size.height * (0.08 + ((((i * 23) % 100) / 100) * 0.76)) +
+          cos((phase * (0.48 + ((i % 4) * 0.04))) + (i * 0.8)) * 6;
+      final radius = i % 4 == 0 ? 1.4 : 0.9;
       final paint = Paint()..color = colors[i % colors.length];
       canvas.drawCircle(Offset(dx, dy), radius, paint);
-
-      if (i % 6 == 0) {
-        final streakPaint = Paint()
-          ..color = colors[(i + 1) % colors.length].withValues(alpha: 0.05)
-          ..strokeWidth = 1;
-        canvas.drawLine(
-          Offset(dx - 4, dy + 6),
-          Offset(dx + 4, dy - 6),
-          streakPaint,
-        );
-      }
     }
   }
 

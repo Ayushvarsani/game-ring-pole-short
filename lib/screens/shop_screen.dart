@@ -105,9 +105,9 @@ class _ShopScreenState extends State<ShopScreen> {
                           onChanged: _handleTabChange,
                         ),
                         SizedBox(height: metrics.sectionSpacing),
-                        // Only the catalog list scrolls. Full-width horizontal
-                        // cards match the reference more closely and keep the
-                        // preview, status, and action readable at compact sizes.
+                        // Only the catalog grid scrolls so the header and tabs
+                        // stay anchored while items present as a compact 2-up
+                        // premium storefront.
                         Expanded(
                           child: BlocBuilder<ShopCubit, ShopState>(
                             builder: (context, shop) {
@@ -137,21 +137,27 @@ class _ShopScreenState extends State<ShopScreen> {
                                   alignment: Alignment.topCenter,
                                   child: ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxWidth: metrics.listMaxWidth,
+                                      maxWidth: metrics.gridMaxWidth,
                                     ),
-                                    child: ListView.separated(
+                                    child: GridView.builder(
                                       key: ValueKey(_selectedTabIndex),
                                       physics: const BouncingScrollPhysics(),
                                       padding: EdgeInsets.only(
                                         bottom: metrics.bottomPadding,
                                       ),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 2,
+                                            mainAxisSpacing:
+                                                metrics.gridSpacing,
+                                            crossAxisSpacing:
+                                                metrics.gridSpacing,
+                                            childAspectRatio:
+                                                metrics.gridChildAspectRatio,
+                                          ),
                                       itemCount: cards.length,
-                                      separatorBuilder: (context, index) =>
-                                          SizedBox(height: metrics.listSpacing),
-                                      itemBuilder: (context, index) => SizedBox(
-                                        height: metrics.cardHeight,
-                                        child: cards[index],
-                                      ),
+                                      itemBuilder: (context, index) =>
+                                          cards[index],
                                     ),
                                   ),
                                 ),
@@ -228,6 +234,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ? 'EQUIPPED'
           : 'EQUIP',
       buttonIcon: locked ? Icons.monetization_on_rounded : null,
+      previewStageHeight: metrics.previewStageHeight,
       preview: SizedBox(
         width: metrics.previewBottleWidth,
         height: metrics.previewBottleHeight,
@@ -278,6 +285,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ? 'EQUIPPED'
           : 'EQUIP',
       buttonIcon: locked ? Icons.monetization_on_rounded : null,
+      previewStageHeight: metrics.previewStageHeight,
       preview: SizedBox(
         width: metrics.previewBottleWidth,
         height: metrics.previewBottleHeight,
@@ -327,9 +335,11 @@ class _ShopScreenState extends State<ShopScreen> {
           ? 'EQUIPPED'
           : 'EQUIP',
       buttonIcon: locked ? Icons.monetization_on_rounded : null,
+      previewStageHeight: metrics.previewStageHeight,
       preview: _ThemePreview(
         gradient: type.gradient,
         compact: metrics.isCompact,
+        size: metrics.themePreviewSize,
       ),
       onTap: () {
         context.read<SettingsCubit>().playClickSound();
@@ -347,21 +357,25 @@ class _ShopLayoutMetrics {
   const _ShopLayoutMetrics({
     required this.isCompact,
     required this.sectionSpacing,
-    required this.listSpacing,
-    required this.listMaxWidth,
-    required this.cardHeight,
+    required this.gridSpacing,
+    required this.gridMaxWidth,
+    required this.gridChildAspectRatio,
+    required this.previewStageHeight,
     required this.previewBottleWidth,
     required this.previewBottleHeight,
+    required this.themePreviewSize,
     required this.bottomPadding,
   });
 
   final bool isCompact;
   final double sectionSpacing;
-  final double listSpacing;
-  final double listMaxWidth;
-  final double cardHeight;
+  final double gridSpacing;
+  final double gridMaxWidth;
+  final double gridChildAspectRatio;
+  final double previewStageHeight;
   final double previewBottleWidth;
   final double previewBottleHeight;
+  final double themePreviewSize;
   final double bottomPadding;
 
   static _ShopLayoutMetrics resolve(BoxConstraints constraints) {
@@ -372,11 +386,13 @@ class _ShopLayoutMetrics {
     return _ShopLayoutMetrics(
       isCompact: compact,
       sectionSpacing: compact ? 12 : 14,
-      listSpacing: compact ? 10 : 12,
-      listMaxWidth: 540,
-      cardHeight: compact ? 116 : 124,
-      previewBottleWidth: compact ? 28 : 30,
-      previewBottleHeight: compact ? 64 : 68,
+      gridSpacing: compact ? 10 : 12,
+      gridMaxWidth: compact ? 520 : 560,
+      gridChildAspectRatio: width < 360 ? 0.78 : (compact ? 0.82 : 0.88),
+      previewStageHeight: width < 360 ? 92 : (compact ? 98 : 108),
+      previewBottleWidth: width < 360 ? 34 : (compact ? 36 : 40),
+      previewBottleHeight: width < 360 ? 78 : (compact ? 82 : 90),
+      themePreviewSize: width < 360 ? 54 : (compact ? 58 : 64),
       bottomPadding: compact ? 18 : 24,
     );
   }
@@ -595,6 +611,7 @@ class ShopReferenceCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.preview,
+    required this.previewStageHeight,
     required this.status,
     required this.tint,
     required this.affordable,
@@ -606,6 +623,7 @@ class ShopReferenceCard extends StatelessWidget {
 
   final String title;
   final Widget preview;
+  final double previewStageHeight;
   final ShopItemStatus status;
   final Color tint;
   final bool affordable;
@@ -661,12 +679,20 @@ class ShopReferenceCard extends StatelessWidget {
       highlighted: status == ShopItemStatus.equipped,
       muted: status != ShopItemStatus.equipped,
       padding: EdgeInsets.all(compact ? 10 : 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: ShopBadge(
+              label: _badgeLabel(),
+              tint: _badgeTint(theme),
+              compact: compact,
+            ),
+          ),
+          SizedBox(height: compact ? 10 : 12),
           Container(
-            width: compact ? 82 : 90,
-            height: compact ? 82 : 90,
+            height: previewStageHeight,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(compact ? 18 : 20),
               gradient: LinearGradient(
@@ -687,57 +713,45 @@ class ShopReferenceCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: Center(
-              child: GlassCard(
-                tint: status == ShopItemStatus.locked ? theme.textMuted : tint,
-                radius: compact ? 16 : 18,
-                blurSigma: 12,
-                muted: true,
-                padding: EdgeInsets.all(compact ? 8 : 10),
-                child: SizedBox.expand(child: Center(child: preview)),
+            child: Padding(
+              padding: EdgeInsets.all(compact ? 8 : 10),
+              child: SizedBox.expand(
+                child: GlassCard(
+                  tint: status == ShopItemStatus.locked
+                      ? theme.textMuted
+                      : tint,
+                  radius: compact ? 16 : 18,
+                  blurSigma: 12,
+                  muted: true,
+                  padding: EdgeInsets.all(compact ? 8 : 10),
+                  child: Center(child: preview),
+                ),
               ),
             ),
           ),
-          SizedBox(width: compact ? 12 : 14),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    ShopBadge(
-                      label: _badgeLabel(),
-                      tint: _badgeTint(theme),
-                      compact: compact,
-                    ),
-                  ],
-                ),
-                SizedBox(height: compact ? 8 : 9),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: theme.textPrimary,
-                    fontSize: compact ? 16 : 17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.08,
-                    height: 1.1,
-                  ),
-                ),
-                SizedBox(height: compact ? 10 : 12),
-                ShopActionButton(
-                  status: status,
-                  affordable: affordable,
-                  compact: compact,
-                  tint: tint,
-                  label: buttonLabel,
-                  icon: buttonIcon,
-                  onTap: _actionEnabled ? onTap : null,
-                ),
-              ],
+          SizedBox(height: compact ? 10 : 12),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontSize: compact ? 14 : 15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.08,
+              height: 1.12,
             ),
+          ),
+          const Spacer(),
+          ShopActionButton(
+            status: status,
+            affordable: affordable,
+            compact: compact,
+            tint: tint,
+            label: buttonLabel,
+            icon: buttonIcon,
+            onTap: _actionEnabled ? onTap : null,
           ),
         ],
       ),
@@ -909,15 +923,18 @@ class ShopActionButton extends StatelessWidget {
 }
 
 class _ThemePreview extends StatelessWidget {
-  const _ThemePreview({required this.gradient, required this.compact});
+  const _ThemePreview({
+    required this.gradient,
+    required this.compact,
+    required this.size,
+  });
 
   final LinearGradient gradient;
   final bool compact;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final size = compact ? 54.0 : 58.0;
-
     return Container(
       width: size,
       height: size,
