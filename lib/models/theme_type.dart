@@ -10,27 +10,27 @@ enum ThemeType {
   ),
   neonEmber(
     displayName: 'Neon Ember',
-    coinPrice: 180,
+    coinPrice: 250,
     config: AppThemeCatalog.neonEmber,
   ),
   lunarBloom(
     displayName: 'Lunar Bloom',
-    coinPrice: 220,
+    coinPrice: 500,
     config: AppThemeCatalog.lunarBloom,
   ),
   deepCurrent(
     displayName: 'Deep Current',
-    coinPrice: 200,
+    coinPrice: 750,
     config: AppThemeCatalog.deepCurrent,
   ),
   velvetPrism(
     displayName: 'Velvet Prism',
-    coinPrice: 260,
+    coinPrice: 1000,
     config: AppThemeCatalog.velvetPrism,
   ),
   solarMist(
     displayName: 'Solar Mist',
-    coinPrice: 240,
+    coinPrice: 1500,
     config: AppThemeCatalog.solarMist,
   );
 

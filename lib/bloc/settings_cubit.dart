@@ -6,6 +6,7 @@ import 'settings_state.dart';
 
 class SettingsCubit extends Cubit<SettingsState> {
   static const _soundKey = 'soundEnabled';
+  static const _musicKey = 'musicEnabled';
   static const _vibrateKey = 'vibrateEnabled';
 
   // For background music
@@ -19,19 +20,30 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final soundEnabled = prefs.getBool(_soundKey) ?? true;
+    final musicEnabled = prefs.getBool(_musicKey) ?? true;
     final vibrateEnabled = prefs.getBool(_vibrateKey) ?? true;
     emit(
-      SettingsState(soundEnabled: soundEnabled, vibrateEnabled: vibrateEnabled),
+      SettingsState(
+        soundEnabled: soundEnabled,
+        musicEnabled: musicEnabled,
+        vibrateEnabled: vibrateEnabled,
+      ),
     );
 
-    _updateBgmPlayback(soundEnabled);
+    _updateBgmPlayback(musicEnabled);
   }
 
   Future<void> toggleSound(bool enabled) async {
     emit(state.copyWith(soundEnabled: enabled));
-    _updateBgmPlayback(enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_soundKey, enabled);
+  }
+
+  Future<void> toggleMusic(bool enabled) async {
+    emit(state.copyWith(musicEnabled: enabled));
+    _updateBgmPlayback(enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_musicKey, enabled);
   }
 
   Future<void> toggleVibration(bool enabled) async {

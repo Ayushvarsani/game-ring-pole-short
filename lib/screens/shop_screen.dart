@@ -716,18 +716,13 @@ class ShopReferenceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_showsBadge)
-            Align(
-              alignment: Alignment.topLeft,
-              child: ShopBadge(
-                label: _badgeLabel(),
-                tint: _badgeTint(theme),
-                compact: compact,
-              ),
-            ),
-          SizedBox(
-            height: compact ? (_showsBadge ? 10 : 6) : (_showsBadge ? 12 : 8),
+          ShopStatusBadgeSlot(
+            visible: _showsBadge,
+            label: _badgeLabel(),
+            tint: _badgeTint(theme),
+            compact: compact,
           ),
+          SizedBox(height: compact ? 10 : 12),
           Container(
             height: previewStageHeight,
             decoration: BoxDecoration(
@@ -785,6 +780,43 @@ class ShopReferenceCard extends StatelessWidget {
   }
 }
 
+class ShopStatusBadgeSlot extends StatelessWidget {
+  const ShopStatusBadgeSlot({
+    super.key,
+    required this.visible,
+    required this.label,
+    required this.tint,
+    required this.compact,
+  });
+
+  final bool visible;
+  final String label;
+  final Color tint;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: ShopBadge.reservedHeight(compact),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: visible
+            ? ShopBadge(label: label, tint: tint, compact: compact)
+            : IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: ShopBadge(
+                    label: 'Equipped',
+                    tint: tint,
+                    compact: compact,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
 class ShopBadge extends StatelessWidget {
   const ShopBadge({
     super.key,
@@ -796,6 +828,8 @@ class ShopBadge extends StatelessWidget {
   final String label;
   final Color tint;
   final bool compact;
+
+  static double reservedHeight(bool compact) => compact ? 20 : 22;
 
   @override
   Widget build(BuildContext context) {
