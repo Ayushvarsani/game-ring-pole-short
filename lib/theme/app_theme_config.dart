@@ -62,6 +62,14 @@ class AppThemeConfig extends ThemeExtension<AppThemeConfig> {
   final Color boardAura;
   final Color boardHalo;
 
+  LinearGradient get brandTextGradient => brandingGradient;
+
+  Color get brandGlowColor =>
+      Color.lerp(primaryAccent, boardHalo, 0.58) ?? boardHalo;
+
+  Color get brandShadowColor =>
+      Color.lerp(backgroundDeep, Colors.black, 0.42) ?? Colors.black;
+
   @override
   AppThemeConfig copyWith({
     String? name,

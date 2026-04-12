@@ -332,19 +332,21 @@ class _HomeViewportMetrics {
       utilityIconSize: compact ? 17 : 19,
       utilityPadding: compact ? 8 : 9,
       brandGap: compact ? 18 : 24,
-      logoHeight: veryShort ? 70 : (compact ? 78 : 90),
-      brandTitleGap: compact ? 8 : 10,
-      titleFontSize: width < 360 ? 22 : (compact ? 24 : 27),
-      titleLetterSpacing: compact ? 0.3 : 0.45,
-      brandMaxWidth: (width * 0.66).clamp(220.0, 320.0).toDouble(),
-      brandToHeroGap: veryShort ? 12 : (compact ? 18 : 24),
+      logoHeight: (height * (veryShort ? 0.25 : (compact ? 0.27 : 0.29)))
+          .clamp(160.0, 250.0)
+          .toDouble(),
+      brandTitleGap: compact ? 10 : 14,
+      titleFontSize: width < 360 ? 27 : (compact ? 30 : 34),
+      titleLetterSpacing: compact ? 1.0 : 1.2,
+      brandMaxWidth: (width * 0.86).clamp(280.0, 430.0).toDouble(),
+      brandToHeroGap: veryShort ? 14 : (compact ? 18 : 24),
       heroWidth: heroWidth,
       heroHeight: heroHeight,
       ringWidth: ringWidth,
       ringHeight: ringWidth * 0.28,
       bottleWidth: (heroWidth * 0.11).clamp(38.0, 50.0).toDouble(),
       bottleHeight: (heroWidth * 0.315).clamp(120.0, 156.0).toDouble(),
-      playOrbSize: (heroWidth * 0.235).clamp(82.0, 96.0).toDouble(),
+      playOrbSize: (heroWidth * 0.215).clamp(76.0, 90.0).toDouble(),
       playOrbBottomInset: veryShort ? 0 : 6,
     );
   }
@@ -404,6 +406,9 @@ class _HomeBrandBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final logoGlow = theme.brandGlowColor;
+
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: metrics.brandMaxWidth),
@@ -411,11 +416,56 @@ class _HomeBrandBlock extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: metrics.logoHeight,
-              child: Image.asset(
-                logoAsset,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
+              height: metrics.logoHeight * 1.08,
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  IgnorePointer(
+                    child: Container(
+                      width: metrics.logoHeight * 1.9,
+                      height: metrics.logoHeight * 1.15,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            logoGlow.withValues(alpha: 0.22),
+                            logoGlow.withValues(alpha: 0.12),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.42, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.brandShadowColor.withValues(alpha: 0.2),
+                          blurRadius: 28,
+                          spreadRadius: -18,
+                          offset: const Offset(0, 12),
+                        ),
+                        BoxShadow(
+                          color: logoGlow.withValues(alpha: 0.26),
+                          blurRadius: 42,
+                          spreadRadius: -22,
+                        ),
+                        BoxShadow(
+                          color: logoGlow.withValues(alpha: 0.14),
+                          blurRadius: 64,
+                          spreadRadius: -34,
+                        ),
+                      ],
+                    ),
+                    child: Image.asset(
+                      logoAsset,
+                      height: metrics.logoHeight,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: metrics.brandTitleGap),
@@ -445,28 +495,50 @@ class _BrandNameText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+    final brandGradient = theme.brandTextGradient;
+    final baseStyle = TextStyle(
+      color: Colors.white,
+      fontSize: fontSize,
+      fontWeight: FontWeight.w900,
+      letterSpacing: letterSpacing,
+      height: 1,
+    );
 
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        title,
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        style: TextStyle(
-          color: theme.textPrimary.withValues(alpha: 0.96),
-          fontSize: fontSize,
-          fontWeight: FontWeight.w700,
-          letterSpacing: letterSpacing,
-          height: 1,
-          shadows: [
-            Shadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: baseStyle.copyWith(
+                color: theme.brandGlowColor.withValues(alpha: 0.16),
+                shadows: [
+                  Shadow(
+                    color: theme.brandShadowColor.withValues(alpha: 0.28),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                  Shadow(
+                    color: theme.brandGlowColor.withValues(alpha: 0.22),
+                    blurRadius: 18,
+                  ),
+                ],
+              ),
             ),
-            Shadow(
-              color: theme.boardAura.withValues(alpha: 0.1),
-              blurRadius: 12,
+            ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) => brandGradient.createShader(bounds),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: baseStyle,
+              ),
             ),
           ],
         ),
@@ -842,11 +914,11 @@ class _IntegratedPlayOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pulse = (sin(progress * 2 * pi) + 1) / 2;
-    final glowStrength = 0.12 + (pulse * 0.04);
+    final glowStrength = 0.09 + (pulse * 0.03);
 
     return GamePressable(
       onTap: onTap,
-      pressedScale: 0.96,
+      pressedScale: 0.97,
       hoverScale: 1.015,
       child: Stack(
         alignment: Alignment.center,
@@ -854,20 +926,20 @@ class _IntegratedPlayOrb extends StatelessWidget {
         children: [
           IgnorePointer(
             child: Container(
-              width: size * 1.08,
-              height: size * 1.08,
+              width: size * 1.04,
+              height: size * 1.04,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: theme.boardHalo.withValues(alpha: glowStrength),
-                    blurRadius: size * 0.26,
-                    spreadRadius: -(size * 0.08),
+                    blurRadius: size * 0.21,
+                    spreadRadius: -(size * 0.1),
                   ),
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: size * 0.2,
-                    spreadRadius: -(size * 0.08),
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: size * 0.16,
+                    spreadRadius: -(size * 0.1),
                     offset: Offset(0, size * 0.12),
                   ),
                 ],
@@ -882,51 +954,51 @@ class _IntegratedPlayOrb extends StatelessWidget {
               child: GlassCard(
                 tint: theme.secondaryAccent,
                 radius: size / 2,
-                blurSigma: 18,
+                blurSigma: 16,
                 muted: true,
                 padding: EdgeInsets.zero,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(size / 2),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
+                    color: Colors.white.withValues(alpha: 0.12),
                   ),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.14),
-                      theme.surface.withValues(alpha: 0.56),
-                      theme.backgroundDeep.withValues(alpha: 0.76),
+                      Colors.white.withValues(alpha: 0.12),
+                      theme.surface.withValues(alpha: 0.5),
+                      theme.backgroundDeep.withValues(alpha: 0.72),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: theme.boardAura.withValues(alpha: glowStrength),
-                      blurRadius: size * 0.22,
-                      spreadRadius: -(size * 0.12),
+                      blurRadius: size * 0.18,
+                      spreadRadius: -(size * 0.16),
                       offset: Offset(0, size * 0.08),
                     ),
                   ],
                 ),
                 child: SizedBox.expand(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: size * 0.14),
+                    padding: EdgeInsets.symmetric(vertical: size * 0.13),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.play_arrow_rounded,
                           color: Colors.white.withValues(alpha: 0.96),
-                          size: size * 0.29,
+                          size: size * 0.27,
                         ),
-                        SizedBox(height: size * 0.01),
+                        SizedBox(height: size * 0.008),
                         Text(
                           'Play',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.94),
-                            fontSize: size * 0.16,
+                            fontSize: size * 0.155,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
+                            letterSpacing: 0.24,
                           ),
                         ),
                       ],
@@ -956,28 +1028,28 @@ class _PlayOrbFramePainter extends CustomPainter {
 
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.045
-      ..color = theme.boardAura.withValues(alpha: 0.08 + (pulse * 0.03))
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      ..strokeWidth = size.width * 0.036
+      ..color = theme.boardAura.withValues(alpha: 0.06 + (pulse * 0.02))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.drawCircle(center, radius, glowPaint);
 
     final edgePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.012
-      ..color = Colors.white.withValues(alpha: 0.16);
+      ..strokeWidth = size.width * 0.011
+      ..color = Colors.white.withValues(alpha: 0.14);
     canvas.drawCircle(center, radius - (size.width * 0.03), edgePaint);
 
     final accentPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.02
+      ..strokeWidth = size.width * 0.017
       ..shader = SweepGradient(
         startAngle: -pi * 0.5,
         endAngle: pi * 1.5,
         colors: [
           Colors.transparent,
-          theme.boardHalo.withValues(alpha: 0.48),
+          theme.boardHalo.withValues(alpha: 0.36),
           Colors.transparent,
-          theme.boardAura.withValues(alpha: 0.42),
+          theme.boardAura.withValues(alpha: 0.32),
           Colors.transparent,
         ],
         stops: const [0.0, 0.18, 0.42, 0.72, 1.0],
