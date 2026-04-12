@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'app_theme_config.dart';
 
 /// Shared visual system for the game's premium puzzle presentation.
 class AppTheme {
   AppTheme._();
 
-  static const Color bgBase = Color(0xFF070E1A);
-  static const Color bgDark = Color(0xFF0B1527);
-  static const Color bgMedium = Color(0xFF122036);
-  static const Color bgLight = Color(0xFF1A2B45);
-  static const Color bgCard = Color(0xFF223553);
+  static const AppThemeConfig fallbackConfig = AppThemeCatalog.auroraFlux;
 
-  static const Color accentPrimary = Color(0xFF5CA8FF);
-  static const Color accentSecondary = Color(0xFF79E2D7);
-  static const Color accentWarm = Color(0xFFFF916C);
-  static const Color accentGold = Color(0xFFF2C35A);
-  static const Color accentSuccess = Color(0xFF84DF9A);
-  static const Color accentDanger = Color(0xFFFF7771);
+  static const Color bgBase = Color(0xFF06131B);
+  static const Color bgDark = Color(0xFF10222C);
+  static const Color bgMedium = Color(0xFF18293A);
+  static const Color bgLight = Color(0xFF203548);
+  static const Color bgCard = Color(0xFF2A4560);
 
-  static const Color textPrimary = Color(0xFFF4F7FF);
-  static const Color textSecondary = Color(0xFFB8C6DF);
-  static const Color textMuted = Color(0xFF7D8EA9);
+  static const Color accentPrimary = Color(0xFF72F5E8);
+  static const Color accentSecondary = Color(0xFF9B8FFF);
+  static const Color accentWarm = Color(0xFFFF9271);
+  static const Color accentGold = Color(0xFFF5D48F);
+  static const Color accentSuccess = Color(0xFF8BE6B4);
+  static const Color accentDanger = Color(0xFFFF7197);
+
+  static const Color textPrimary = Color(0xFFF6FAFF);
+  static const Color textSecondary = Color(0xFFC6D4E6);
+  static const Color textMuted = Color(0xFF8EA0B5);
 
   static const double radiusSmall = 18;
   static const double radiusMedium = 24;
@@ -39,99 +44,94 @@ class AppTheme {
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF12223C), Color(0xFF0C1830), Color(0xFF070E1A)],
-    stops: [0.0, 0.45, 1.0],
+    colors: [Color(0xFF11222B), Color(0xFF14313A), Color(0xFF231645)],
+    stops: [0.0, 0.48, 1.0],
   );
 
   static const LinearGradient buttonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF5CA8FF), Color(0xFF77D9F0), Color(0xFF79E2D7)],
-    stops: [0.0, 0.55, 1.0],
+    colors: [Color(0xFF93FFF0), Color(0xFF74E7EB), Color(0xFF8F8BFF)],
+    stops: [0.0, 0.5, 1.0],
   );
 
   static const LinearGradient dialogGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF243654), Color(0xFF19283F), Color(0xFF101A2D)],
-    stops: [0.0, 0.45, 1.0],
+    colors: [Color(0xFF22364C), Color(0xFF182637), Color(0xFF12152A)],
+    stops: [0.0, 0.46, 1.0],
   );
 
   static const LinearGradient overlayGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x660A1220), Color(0x220A1220), Color(0x88060C15)],
+    colors: [Color(0x73050E15), Color(0x260A1320), Color(0x9D060913)],
     stops: [0.0, 0.35, 1.0],
   );
 
-  static const LinearGradient glassBaseGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0x66FFFFFF), Color(0x2BFFFFFF), Color(0x180B1527)],
-    stops: [0.0, 0.28, 1.0],
-  );
-
-  static ThemeData get materialTheme {
+  static ThemeData materialTheme([AppThemeConfig? theme]) {
+    final active = theme ?? fallbackConfig;
     return ThemeData(
       brightness: Brightness.dark,
       useMaterial3: true,
-      scaffoldBackgroundColor: bgBase,
+      scaffoldBackgroundColor: active.backgroundBase,
       fontFamily: 'Roboto',
-      colorScheme: const ColorScheme.dark(
-        primary: accentPrimary,
-        secondary: accentSecondary,
-        surface: bgLight,
-        error: accentDanger,
+      extensions: <ThemeExtension<dynamic>>[active],
+      colorScheme: ColorScheme.dark(
+        primary: active.primaryAccent,
+        secondary: active.secondaryAccent,
+        surface: active.surface,
+        error: active.dangerAccent,
       ),
       dialogTheme: const DialogThemeData(
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      splashColor: accentSecondary.withValues(alpha: 0.08),
+      splashColor: active.secondaryAccent.withValues(alpha: 0.08),
       highlightColor: Colors.transparent,
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineLarge: TextStyle(
-          color: textPrimary,
+          color: active.textPrimary,
           fontSize: 32,
           fontWeight: FontWeight.w800,
           height: 1.04,
           letterSpacing: -0.45,
         ),
         headlineMedium: TextStyle(
-          color: textPrimary,
+          color: active.textPrimary,
           fontSize: 28,
           fontWeight: FontWeight.w800,
           height: 1.1,
           letterSpacing: -0.2,
         ),
         titleLarge: TextStyle(
-          color: textPrimary,
+          color: active.textPrimary,
           fontSize: 18,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
         ),
         titleMedium: TextStyle(
-          color: textPrimary,
+          color: active.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.24,
         ),
         bodyLarge: TextStyle(
-          color: textSecondary,
+          color: active.textSecondary,
           fontSize: 17,
           fontWeight: FontWeight.w500,
           height: 1.45,
           letterSpacing: 0.14,
         ),
         bodyMedium: TextStyle(
-          color: textSecondary,
+          color: active.textSecondary,
           fontSize: 14,
           fontWeight: FontWeight.w500,
           height: 1.4,
           letterSpacing: 0.18,
         ),
         labelLarge: TextStyle(
-          color: textPrimary,
+          color: active.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
@@ -140,14 +140,33 @@ class AppTheme {
     );
   }
 
-  static LinearGradient accentGradient(Color accent, {double intensity = 1.0}) {
+  static SystemUiOverlayStyle overlayStyle([AppThemeConfig? theme]) {
+    final active = theme ?? fallbackConfig;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: active.backgroundBase,
+      systemNavigationBarIconBrightness: Brightness.light,
+    );
+  }
+
+  static AppThemeConfig of(BuildContext context) {
+    return Theme.of(context).extension<AppThemeConfig>() ?? fallbackConfig;
+  }
+
+  static LinearGradient accentGradient(
+    Color accent, {
+    double intensity = 1.0,
+    AppThemeConfig? theme,
+  }) {
+    final active = theme ?? fallbackConfig;
     return LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
         Color.lerp(accent, Colors.white, 0.22 * intensity)!,
         accent,
-        Color.lerp(accent, bgDark, 0.36)!,
+        Color.lerp(accent, active.backgroundDeep, 0.38)!,
       ],
       stops: const [0.0, 0.5, 1.0],
     );
@@ -157,16 +176,24 @@ class AppTheme {
     Color tint, {
     bool emphasized = false,
     bool muted = false,
+    AppThemeConfig? theme,
   }) {
+    final active = theme ?? fallbackConfig;
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: muted ? 0.16 : 0.3),
+        color: Colors.black.withValues(alpha: muted ? 0.18 : 0.32),
         blurRadius: emphasized ? 34 : 24,
         spreadRadius: emphasized ? -12 : -10,
         offset: const Offset(0, 16),
       ),
       BoxShadow(
-        color: tint.withValues(alpha: emphasized ? 0.22 : 0.1),
+        color: active.backgroundDeep.withValues(alpha: muted ? 0.0 : 0.18),
+        blurRadius: emphasized ? 24 : 18,
+        spreadRadius: -10,
+        offset: const Offset(0, 10),
+      ),
+      BoxShadow(
+        color: tint.withValues(alpha: emphasized ? 0.24 : 0.1),
         blurRadius: emphasized ? 30 : 18,
         spreadRadius: emphasized ? -10 : -12,
         offset: const Offset(0, 10),
@@ -180,10 +207,12 @@ class AppTheme {
     double radius = radiusMedium,
     bool highlighted = false,
     bool muted = false,
+    AppThemeConfig? theme,
   }) {
-    final accent = tint ?? accentPrimary;
-    final surface = muted ? bgMedium : bgCard;
-    final blend = highlighted ? 0.2 : 0.12;
+    final active = theme ?? fallbackConfig;
+    final accent = tint ?? active.primaryAccent;
+    final surface = muted ? active.surfaceMuted : active.surface;
+    final blend = highlighted ? 0.22 : 0.12;
     return BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft,
@@ -191,17 +220,22 @@ class AppTheme {
         colors: [
           _blend(surface, Colors.white, 0.18),
           _blend(surface, accent, blend),
-          _blend(surface, bgDark, 0.14),
+          _blend(surface, active.backgroundDeep, 0.16),
         ],
       ),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
         color:
             borderColor ??
-            Colors.white.withValues(alpha: highlighted ? 0.22 : 0.12),
+            active.surfaceStroke.withValues(alpha: highlighted ? 0.36 : 0.14),
         width: highlighted ? 1.2 : 1.0,
       ),
-      boxShadow: premiumShadows(accent, emphasized: highlighted, muted: muted),
+      boxShadow: premiumShadows(
+        accent,
+        emphasized: highlighted,
+        muted: muted,
+        theme: active,
+      ),
     );
   }
 
@@ -211,6 +245,7 @@ class AppTheme {
     double radius = radiusMedium,
     bool highlighted = false,
     bool muted = false,
+    AppThemeConfig? theme,
   }) {
     return glassDecoration(
       tint: tint,
@@ -218,13 +253,19 @@ class AppTheme {
       radius: radius,
       highlighted: highlighted,
       muted: muted,
+      theme: theme,
     );
   }
 
-  static BoxDecoration dialogDecoration({Color? borderColor, Color? tint}) {
-    final accent = borderColor ?? tint ?? accentPrimary;
+  static BoxDecoration dialogDecoration({
+    Color? borderColor,
+    Color? tint,
+    AppThemeConfig? theme,
+  }) {
+    final active = theme ?? fallbackConfig;
+    final accent = borderColor ?? tint ?? active.primaryAccent;
     return BoxDecoration(
-      gradient: dialogGradient,
+      gradient: active.dialogGradient,
       borderRadius: BorderRadius.circular(radiusLarge),
       border: Border.all(color: accent.withValues(alpha: 0.28), width: 1.2),
       boxShadow: [
@@ -247,18 +288,21 @@ class AppTheme {
     bool isSelected = false,
     bool isLocked = false,
     Color? glowColor,
+    AppThemeConfig? theme,
   }) {
+    final active = theme ?? fallbackConfig;
     final tint = isSelected
-        ? (glowColor ?? accentSecondary)
+        ? (glowColor ?? active.secondaryAccent)
         : isLocked
-        ? textMuted
-        : accentPrimary;
+        ? active.textMuted
+        : active.primaryAccent;
     return surfaceDecoration(
       tint: tint,
       radius: 22,
       muted: !isSelected,
       highlighted: isSelected,
       borderColor: isLocked ? Colors.white.withValues(alpha: 0.08) : null,
+      theme: active,
     );
   }
 
@@ -266,14 +310,19 @@ class AppTheme {
     bool isEnabled = true,
     bool isActive = false,
     Color? accentColor,
+    AppThemeConfig? theme,
   }) {
-    final tint = accentColor ?? (isActive ? accentSecondary : accentPrimary);
+    final active = theme ?? fallbackConfig;
+    final tint =
+        accentColor ??
+        (isActive ? active.secondaryAccent : active.primaryAccent);
     return surfaceDecoration(
       tint: tint,
       radius: 24,
       muted: !isEnabled,
       highlighted: isEnabled && isActive,
       borderColor: Colors.white.withValues(alpha: isEnabled ? 0.12 : 0.06),
+      theme: active,
     );
   }
 
@@ -282,34 +331,45 @@ class AppTheme {
     bool isEnabled = true,
     bool emphasized = false,
     double radius = 24,
+    AppThemeConfig? theme,
   }) {
+    final active = theme ?? fallbackConfig;
     final alpha = isEnabled ? 1.0 : 0.42;
     return BoxDecoration(
-      gradient: accentGradient(accentColor, intensity: emphasized ? 1.0 : 0.82),
+      gradient: accentGradient(
+        accentColor,
+        intensity: emphasized ? 1.0 : 0.82,
+        theme: active,
+      ),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: Colors.white.withValues(alpha: 0.16 * alpha)),
       boxShadow: premiumShadows(
         accentColor.withValues(alpha: alpha),
         emphasized: emphasized || isEnabled,
         muted: !isEnabled,
+        theme: active,
       ),
     );
   }
 
-  static BoxDecoration primaryButtonDecoration({double glowStrength = 0.3}) {
+  static BoxDecoration primaryButtonDecoration({
+    double glowStrength = 0.3,
+    AppThemeConfig? theme,
+  }) {
+    final active = theme ?? fallbackConfig;
     return BoxDecoration(
-      gradient: buttonGradient,
+      gradient: active.primaryButtonGradient,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       boxShadow: [
         BoxShadow(
-          color: accentPrimary.withValues(alpha: glowStrength),
+          color: active.primaryAccent.withValues(alpha: glowStrength),
           blurRadius: 28,
           spreadRadius: -8,
           offset: const Offset(0, 16),
         ),
         BoxShadow(
-          color: accentSecondary.withValues(alpha: glowStrength * 0.72),
+          color: active.secondaryAccent.withValues(alpha: glowStrength * 0.72),
           blurRadius: 24,
           spreadRadius: -10,
           offset: const Offset(0, 10),
@@ -318,12 +378,18 @@ class AppTheme {
     );
   }
 
-  static BoxDecoration chipDecoration({Color? tint, bool emphasized = false}) {
+  static BoxDecoration chipDecoration({
+    Color? tint,
+    bool emphasized = false,
+    AppThemeConfig? theme,
+  }) {
+    final active = theme ?? fallbackConfig;
     return surfaceDecoration(
-      tint: tint ?? accentPrimary,
+      tint: tint ?? active.primaryAccent,
       radius: 999,
       muted: !emphasized,
       highlighted: emphasized,
+      theme: active,
     );
   }
 

@@ -4,6 +4,7 @@ import '../models/bottle_model.dart';
 import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
 import '../painters/liquid_painter.dart';
+import '../theme/app_theme.dart';
 
 class BottleWidget extends StatelessWidget {
   const BottleWidget({
@@ -51,6 +52,8 @@ class BottleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
     return SizedBox(
       key: measureKey,
       width: size.width,
@@ -80,6 +83,7 @@ class BottleWidget extends StatelessWidget {
                 celebrationProgress: celebrationProgress,
                 bottleType: bottleType,
                 fillType: fillType,
+                theme: theme,
               ),
               size: size,
             ),

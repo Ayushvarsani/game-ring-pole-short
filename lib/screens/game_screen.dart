@@ -13,6 +13,7 @@ import '../models/fill_type.dart';
 import '../painters/pouring_stream_painter.dart';
 import '../services/coin_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_theme_config.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 
@@ -197,21 +198,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         }
       },
       builder: (context, state) {
-        final themeGradient = context
-            .watch<ShopCubit>()
-            .state
-            .selectedTheme
-            .gradient;
+        final theme = AppTheme.of(context);
         return Scaffold(
           body: DecoratedBox(
-            decoration: BoxDecoration(gradient: themeGradient),
+            decoration: BoxDecoration(gradient: theme.backgroundGradient),
             child: Stack(
               children: [
                 Positioned.fill(
                   child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: AppTheme.overlayGradient,
-                    ),
+                    decoration: BoxDecoration(gradient: theme.overlayGradient),
                   ),
                 ),
                 SafeArea(
@@ -259,6 +254,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     GameState state,
     _GameScreenViewportMetrics metrics,
   ) {
+    final theme = AppTheme.of(context);
     final movesLeft = max(0, state.moveLimit - state.moveCount);
     final isLowMoves = movesLeft <= 3;
     return Row(
@@ -266,7 +262,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       children: [
         GameIconButton(
           icon: Icons.arrow_back_rounded,
-          tint: AppTheme.accentPrimary,
+          tint: theme.primaryAccent,
           size: metrics.isCompact ? 18 : 19,
           padding: EdgeInsets.all(metrics.backButtonPadding),
           onTap: () {
@@ -286,7 +282,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   icon: Icons.grid_view_rounded,
                   label: 'Board',
                   value: '${state.bottles.length}',
-                  tint: AppTheme.accentSecondary,
+                  tint: theme.secondaryAccent,
                   compact: metrics.isCompact,
                 ),
               ),
@@ -296,7 +292,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   icon: Icons.auto_awesome_rounded,
                   label: 'Level',
                   value: '${state.level}',
-                  tint: AppTheme.accentPrimary,
+                  tint: theme.primaryAccent,
                   compact: metrics.isCompact,
                 ),
               ),
@@ -306,7 +302,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   icon: Icons.swap_vert_rounded,
                   label: 'Moves',
                   value: '$movesLeft',
-                  tint: isLowMoves ? AppTheme.accentWarm : AppTheme.accentGold,
+                  tint: isLowMoves ? theme.warmAccent : theme.goldAccent,
                   compact: metrics.isCompact,
                 ),
               ),
@@ -324,6 +320,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   ) {
     final count = state.bottles.length;
     final shopState = context.watch<ShopCubit>().state;
+    final theme = AppTheme.of(context);
 
     return AnimatedBuilder(
       animation: Listenable.merge([
@@ -352,6 +349,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     painter: _BoardPainter(
                       progress: _wobbleController.value,
                       isAnimating: _isAnimating,
+                      theme: theme,
                     ),
                   ),
                 ),
@@ -407,7 +405,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           gradient: RadialGradient(
                             colors: [
-                              AppTheme.accentSecondary.withValues(alpha: 0.16),
+                              theme.boardAura.withValues(alpha: 0.16),
                               Colors.transparent,
                             ],
                           ),
@@ -610,6 +608,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     GameState state,
     _GameScreenViewportMetrics metrics,
   ) {
+    final theme = AppTheme.of(context);
     // The controls stay in one low-profile row so the footer reads quickly
     // and the Expanded middle section keeps the most vertical space.
     return Row(
@@ -619,7 +618,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             metrics: metrics,
             icon: Icons.undo_rounded,
             label: 'Undo',
-            accentColor: AppTheme.accentPrimary,
+            accentColor: theme.primaryAccent,
             onTap: state.moveHistory.isNotEmpty
                 ? () {
                     context.read<SettingsCubit>().playClickSound();
@@ -635,7 +634,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             metrics: metrics,
             icon: Icons.lightbulb_outline_rounded,
             label: 'Hint',
-            accentColor: AppTheme.accentGold,
+            accentColor: theme.goldAccent,
             onTap:
                 state.status == GameStatus.playing && state.hintsRemaining > 0
                 ? () {
@@ -652,7 +651,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             metrics: metrics,
             icon: Icons.refresh_rounded,
             label: 'Restart',
-            accentColor: AppTheme.accentWarm,
+            accentColor: theme.warmAccent,
             onTap: () {
               context.read<SettingsCubit>().playClickSound();
               context.read<SettingsCubit>().triggerLightHaptic();
@@ -720,6 +719,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _showWinDialog(BuildContext context, int coinsEarned) {
+    final theme = AppTheme.of(context);
     context.read<SettingsCubit>().playClickSound();
     context.read<SettingsCubit>().triggerHeavyHaptic();
     _showOverlayDialog(
@@ -729,7 +729,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         title: 'Level Complete',
         subtitle:
             'Everything is sorted. Your reward is ready and the next puzzle is unlocked.',
-        tint: AppTheme.accentGold,
+        tint: theme.goldAccent,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -737,15 +737,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               width: 84,
               height: 84,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.accentGold, AppTheme.accentWarm],
+                gradient: LinearGradient(
+                  colors: [theme.goldAccent, theme.warmAccent],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.accentGold.withValues(alpha: 0.28),
+                    color: theme.goldAccent.withValues(alpha: 0.28),
                     blurRadius: 28,
                     spreadRadius: -6,
                     offset: const Offset(0, 14),
@@ -766,7 +766,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     icon: Icons.monetization_on_rounded,
                     label: 'Coins Earned',
                     value: '+$coinsEarned',
-                    tint: AppTheme.accentGold,
+                    tint: theme.goldAccent,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -775,7 +775,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     icon: Icons.auto_awesome_rounded,
                     label: 'Next Stage',
                     value: 'Level ${context.read<GameCubit>().state.level + 1}',
-                    tint: AppTheme.accentSecondary,
+                    tint: theme.secondaryAccent,
                   ),
                 ),
               ],
@@ -800,6 +800,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _showGameOverDialog(BuildContext context, GameState state) {
+    final theme = AppTheme.of(context);
     context.read<SettingsCubit>().playClickSound();
     context.read<SettingsCubit>().triggerHeavyHaptic();
     _showOverlayDialog(
@@ -809,7 +810,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         title: 'Out Of Moves',
         subtitle:
             'This board needs one more pass. Restart the level or head back to the home screen.',
-        tint: AppTheme.accentWarm,
+        tint: theme.warmAccent,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -817,15 +818,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.accentWarm.withValues(alpha: 0.18),
+                color: theme.warmAccent.withValues(alpha: 0.18),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppTheme.accentWarm.withValues(alpha: 0.3),
+                  color: theme.warmAccent.withValues(alpha: 0.3),
                 ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.hourglass_bottom_rounded,
-                color: AppTheme.accentWarm,
+                color: theme.warmAccent,
                 size: 38,
               ),
             ),
@@ -837,7 +838,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     icon: Icons.swap_vert_rounded,
                     label: 'Moves Used',
                     value: '${state.moveCount}/${state.moveLimit}',
-                    tint: AppTheme.accentWarm,
+                    tint: theme.warmAccent,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -846,7 +847,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     icon: Icons.lightbulb_outline_rounded,
                     label: 'Hints Left',
                     value: '${state.hintsRemaining}',
-                    tint: AppTheme.accentGold,
+                    tint: theme.goldAccent,
                   ),
                 ),
               ],
@@ -863,15 +864,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       decoration: AppTheme.surfaceDecoration(
-                        tint: AppTheme.accentPrimary,
+                        tint: theme.primaryAccent,
                         radius: 24,
                         muted: true,
+                        theme: theme,
                       ),
-                      child: const Text(
+                      child: Text(
                         'Home',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: AppTheme.textPrimary,
+                          color: theme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -909,20 +911,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     required String value,
     required Color tint,
   }) {
+    final theme = AppTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: AppTheme.surfaceDecoration(
         tint: tint,
         radius: 22,
         muted: true,
+        theme: theme,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
-              color: AppTheme.textMuted,
+            style: TextStyle(
+              color: theme.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.0,
@@ -936,8 +940,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: theme.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.1,
@@ -969,6 +973,7 @@ class _CompactHeaderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final iconSize = compact ? 14.0 : 15.0;
     final iconSpacing = compact ? 4.0 : 5.0;
 
@@ -992,7 +997,7 @@ class _CompactHeaderChip extends StatelessWidget {
               Icon(
                 icon,
                 size: iconSize,
-                color: AppTheme.textPrimary.withValues(alpha: 0.82),
+                color: theme.textPrimary.withValues(alpha: 0.82),
               ),
               SizedBox(width: iconSpacing),
               Text.rich(
@@ -1001,7 +1006,7 @@ class _CompactHeaderChip extends StatelessWidget {
                     TextSpan(
                       text: '$label ',
                       style: TextStyle(
-                        color: AppTheme.textMuted,
+                        color: theme.textMuted,
                         fontSize: compact ? 9 : 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.16,
@@ -1010,7 +1015,7 @@ class _CompactHeaderChip extends StatelessWidget {
                     TextSpan(
                       text: value,
                       style: TextStyle(
-                        color: AppTheme.textPrimary,
+                        color: theme.textPrimary,
                         fontSize: compact ? 11 : 12,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.1,
@@ -1049,6 +1054,7 @@ class _CompactActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final enabled = onTap != null;
 
     return GamePressable(
@@ -1062,6 +1068,7 @@ class _CompactActionButton extends StatelessWidget {
             isEnabled: enabled,
             emphasized: false,
             radius: radius,
+            theme: theme,
           ),
           child: SizedBox(
             height: height,
@@ -1120,10 +1127,15 @@ class _BottleRenderState {
 }
 
 class _BoardPainter extends CustomPainter {
-  const _BoardPainter({required this.progress, required this.isAnimating});
+  const _BoardPainter({
+    required this.progress,
+    required this.isAnimating,
+    required this.theme,
+  });
 
   final double progress;
   final bool isAnimating;
+  final AppThemeConfig theme;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1134,8 +1146,8 @@ class _BoardPainter extends CustomPainter {
         center: const Alignment(0, -0.08),
         radius: 0.9,
         colors: [
-          AppTheme.accentPrimary.withValues(alpha: isAnimating ? 0.12 : 0.08),
-          AppTheme.accentSecondary.withValues(alpha: 0.05 + pulse),
+          theme.boardHalo.withValues(alpha: isAnimating ? 0.12 : 0.08),
+          theme.boardAura.withValues(alpha: 0.05 + pulse),
           Colors.transparent,
         ],
         stops: const [0.0, 0.48, 1.0],
@@ -1150,7 +1162,7 @@ class _BoardPainter extends CustomPainter {
     final floorGlow = Paint()
       ..shader = RadialGradient(
         colors: [
-          AppTheme.accentSecondary.withValues(alpha: 0.12 + pulse),
+          theme.boardAura.withValues(alpha: 0.12 + pulse),
           Colors.transparent,
         ],
       ).createShader(floorGlowRect);
@@ -1176,7 +1188,8 @@ class _BoardPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BoardPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.isAnimating != isAnimating;
+        oldDelegate.isAnimating != isAnimating ||
+        oldDelegate.theme != theme;
   }
 }
 

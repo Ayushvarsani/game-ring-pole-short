@@ -8,6 +8,7 @@ import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
 import '../models/game_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_theme_config.dart';
 
 class BottleGeometry {
   const BottleGeometry._({
@@ -125,6 +126,7 @@ class LiquidPainter extends CustomPainter {
     this.celebrationProgress = 0.0,
     this.bottleType = BottleType.classic,
     this.fillType = FillType.liquid,
+    this.theme,
   });
 
   final BottleModel bottle;
@@ -142,9 +144,11 @@ class LiquidPainter extends CustomPainter {
   final double celebrationProgress;
   final BottleType bottleType;
   final FillType fillType;
+  final AppThemeConfig? theme;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final activeTheme = theme ?? AppTheme.fallbackConfig;
     final geometry = BottleGeometry.fromSize(size, bottleType);
     final bodyPath = _buildBottlePath(geometry);
 
@@ -157,26 +161,26 @@ class LiquidPainter extends CustomPainter {
       canvas.translate(-pivotX, -pivotY);
     }
 
-    _drawGroundShadow(canvas, geometry);
-    _drawBottleGlass(canvas, bodyPath, geometry);
+    _drawGroundShadow(canvas, geometry, activeTheme);
+    _drawBottleGlass(canvas, bodyPath, geometry, activeTheme);
     _drawLiquid(canvas, geometry);
     _drawBottleMouthRim(canvas, geometry);
     _drawGlassHighlights(canvas, geometry);
 
     if (isSource) {
-      _drawStateGlow(canvas, bodyPath, AppTheme.accentPrimary, 0.28, 9);
+      _drawStateGlow(canvas, bodyPath, activeTheme.primaryAccent, 0.28, 9);
     }
     if (isDest) {
-      _drawStateGlow(canvas, bodyPath, AppTheme.accentSecondary, 0.24, 9);
+      _drawStateGlow(canvas, bodyPath, activeTheme.secondaryAccent, 0.24, 9);
     }
     if (isSelected) {
-      _drawStateGlow(canvas, bodyPath, AppTheme.accentSecondary, 0.34, 10);
+      _drawStateGlow(canvas, bodyPath, activeTheme.secondaryAccent, 0.34, 10);
     }
     if (isHint) {
-      _drawStateGlow(canvas, bodyPath, AppTheme.accentGold, 0.3, 11);
+      _drawStateGlow(canvas, bodyPath, activeTheme.goldAccent, 0.3, 11);
     }
     if (isSolved && !isSource && !isDest) {
-      _drawStateGlow(canvas, bodyPath, AppTheme.accentSuccess, 0.18, 8);
+      _drawStateGlow(canvas, bodyPath, activeTheme.successAccent, 0.18, 8);
     }
 
     if (isSolved && capProgress > 0.0) {
@@ -352,7 +356,11 @@ class LiquidPainter extends CustomPainter {
     );
   }
 
-  void _drawGroundShadow(Canvas canvas, BottleGeometry g) {
+  void _drawGroundShadow(
+    Canvas canvas,
+    BottleGeometry g,
+    AppThemeConfig theme,
+  ) {
     final shadowRect = Rect.fromCenter(
       center: Offset(g.centerX, g.bottom + 4),
       width: g.bottleWidth * (isSource || isDest ? 0.95 : 0.82),
@@ -368,13 +376,13 @@ class LiquidPainter extends CustomPainter {
     canvas.drawOval(shadowRect, shadowPaint);
 
     final glowColor = isSource
-        ? AppTheme.accentPrimary
+        ? theme.primaryAccent
         : isDest
-        ? AppTheme.accentSecondary
+        ? theme.secondaryAccent
         : isSelected
-        ? AppTheme.accentSecondary
+        ? theme.secondaryAccent
         : isHint
-        ? AppTheme.accentGold
+        ? theme.goldAccent
         : null;
     if (glowColor != null) {
       final glowRect = Rect.fromCenter(
@@ -395,7 +403,12 @@ class LiquidPainter extends CustomPainter {
     }
   }
 
-  void _drawBottleGlass(Canvas canvas, Path bodyPath, BottleGeometry g) {
+  void _drawBottleGlass(
+    Canvas canvas,
+    Path bodyPath,
+    BottleGeometry g,
+    AppThemeConfig theme,
+  ) {
     final glassRect = Rect.fromLTRB(g.left, g.neckTop, g.right, g.bottom);
     final fillPaint = Paint()
       ..shader = LinearGradient(
@@ -404,7 +417,7 @@ class LiquidPainter extends CustomPainter {
         colors: [
           Colors.white.withValues(alpha: 0.22),
           Colors.white.withValues(alpha: 0.08),
-          AppTheme.bgCard.withValues(alpha: 0.14),
+          theme.surfaceStrong.withValues(alpha: 0.18),
         ],
         stops: const [0.0, 0.28, 1.0],
       ).createShader(glassRect);
@@ -803,6 +816,7 @@ class LiquidPainter extends CustomPainter {
   }
 
   void _drawCelebration(Canvas canvas, BottleGeometry g) {
+    final activeTheme = theme ?? AppTheme.fallbackConfig;
     final center = Offset(g.centerX, g.top + g.bottleHeight * 0.38);
     final progress = celebrationProgress;
     final opacity = progress < 0.55
@@ -811,10 +825,10 @@ class LiquidPainter extends CustomPainter {
     final radius = g.bottleWidth * (0.45 + progress * 0.8);
     final rng = Random(42);
     final sparkColors = [
-      AppTheme.accentGold,
-      AppTheme.accentSecondary,
-      AppTheme.accentSuccess,
-      AppTheme.accentWarm,
+      activeTheme.goldAccent,
+      activeTheme.secondaryAccent,
+      activeTheme.successAccent,
+      activeTheme.warmAccent,
     ];
 
     for (int i = 0; i < 14; i++) {
@@ -958,6 +972,7 @@ class LiquidPainter extends CustomPainter {
         oldDelegate.capProgress != capProgress ||
         oldDelegate.celebrationProgress != celebrationProgress ||
         oldDelegate.bottleType != bottleType ||
-        oldDelegate.fillType != fillType;
+        oldDelegate.fillType != fillType ||
+        oldDelegate.theme != theme;
   }
 }

@@ -11,6 +11,7 @@ class SettingsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -19,10 +20,10 @@ class SettingsDialog extends StatelessWidget {
           return GameDialogFrame(
             title: 'Settings',
             subtitle: 'Tune the game feel for your play sessions.',
-            tint: AppTheme.accentPrimary,
+            tint: theme.primaryAccent,
             trailing: GameIconButton(
               icon: Icons.close_rounded,
-              tint: AppTheme.accentWarm,
+              tint: theme.warmAccent,
               onTap: () {
                 context.read<SettingsCubit>().playClickSound();
                 Navigator.of(context).pop();
@@ -39,7 +40,7 @@ class SettingsDialog extends StatelessWidget {
                   title: 'Sound',
                   subtitle: 'Tap sounds, rewards, and feedback cues',
                   value: state.soundEnabled,
-                  tint: AppTheme.accentSecondary,
+                  tint: theme.secondaryAccent,
                   onChanged: (value) {
                     context.read<SettingsCubit>().toggleSound(value);
                     if (value) context.read<SettingsCubit>().playClickSound();
@@ -54,7 +55,7 @@ class SettingsDialog extends StatelessWidget {
                   title: 'Vibration',
                   subtitle: 'Haptics for taps, pours, and rewards',
                   value: state.vibrateEnabled,
-                  tint: AppTheme.accentGold,
+                  tint: theme.goldAccent,
                   onChanged: (value) {
                     context.read<SettingsCubit>().toggleVibration(value);
                     if (value) {
@@ -79,12 +80,14 @@ class SettingsDialog extends StatelessWidget {
     required Color tint,
     required ValueChanged<bool> onChanged,
   }) {
+    final theme = AppTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: AppTheme.surfaceDecoration(
         tint: tint,
         radius: 22,
         muted: true,
+        theme: theme,
       ),
       child: Row(
         children: [
@@ -104,8 +107,8 @@ class SettingsDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: theme.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -113,8 +116,8 @@ class SettingsDialog extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: theme.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     height: 1.35,
@@ -128,7 +131,7 @@ class SettingsDialog extends StatelessWidget {
             onChanged: onChanged,
             activeThumbColor: Colors.white,
             activeTrackColor: tint,
-            inactiveThumbColor: AppTheme.textSecondary,
+            inactiveThumbColor: theme.textSecondary,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
           ),
         ],

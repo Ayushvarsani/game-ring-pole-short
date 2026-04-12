@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/app_theme_config.dart';
 
 class GlassCard extends StatelessWidget {
   const GlassCard({
@@ -32,6 +33,7 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final borderRadius = BorderRadius.circular(radius);
     return Container(
       margin: margin,
@@ -43,6 +45,7 @@ class GlassCard extends StatelessWidget {
             decoration:
                 decoration ??
                 AppTheme.glassDecoration(
+                  theme: theme,
                   tint: tint,
                   borderColor: borderColor,
                   radius: radius,
@@ -138,7 +141,8 @@ class GameIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = tint ?? AppTheme.accentPrimary;
+    final theme = AppTheme.of(context);
+    final accent = tint ?? theme.primaryAccent;
     return GamePressable(
       onTap: onTap,
       child: AnimatedOpacity(
@@ -149,7 +153,7 @@ class GameIconButton extends StatelessWidget {
           radius: 18,
           muted: true,
           padding: padding,
-          child: Icon(icon, color: AppTheme.textPrimary, size: size),
+          child: Icon(icon, color: theme.textPrimary, size: size),
         ),
       ),
     );
@@ -170,13 +174,18 @@ class GameBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient(tint, intensity: 0.84),
+        gradient: AppTheme.accentGradient(tint, intensity: 0.84, theme: theme),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: AppTheme.premiumShadows(tint, emphasized: false),
+        boxShadow: AppTheme.premiumShadows(
+          tint,
+          emphasized: false,
+          theme: theme,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -218,12 +227,13 @@ class GameStatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = tint ?? AppTheme.accentPrimary;
+    final theme = AppTheme.of(context);
+    final accent = tint ?? theme.primaryAccent;
     final iconBubble = Container(
       width: compact ? 28 : 34,
       height: compact ? 28 : 34,
       decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient(accent, intensity: 0.9),
+        gradient: AppTheme.accentGradient(accent, intensity: 0.9, theme: theme),
         borderRadius: BorderRadius.circular(compact ? 10 : 12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
@@ -250,8 +260,8 @@ class GameStatChip extends StatelessWidget {
                     value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                    style: TextStyle(
+                      color: theme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.3,
@@ -269,7 +279,7 @@ class GameStatChip extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppTheme.textMuted.withValues(alpha: 0.94),
+                    color: theme.textMuted.withValues(alpha: 0.94),
                     fontSize: 11,
                     letterSpacing: 1.0,
                     fontWeight: FontWeight.w700,
@@ -285,8 +295,8 @@ class GameStatChip extends StatelessWidget {
                         value,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: theme.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.28,
@@ -333,6 +343,7 @@ class GameButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final enabled = onTap != null;
     return GamePressable(
       onTap: onTap,
@@ -347,6 +358,7 @@ class GameButton extends StatelessWidget {
               isEnabled: enabled,
               emphasized: emphasized,
               radius: radius,
+              theme: theme,
             ),
             child: Stack(
               children: [
@@ -370,8 +382,8 @@ class GameButton extends StatelessWidget {
                 Padding(
                   padding: padding,
                   child: layout == GameButtonLayout.vertical
-                      ? _buildVerticalContent(enabled)
-                      : _buildHorizontalContent(enabled),
+                      ? _buildVerticalContent(enabled, theme)
+                      : _buildHorizontalContent(enabled, theme),
                 ),
               ],
             ),
@@ -381,7 +393,7 @@ class GameButton extends StatelessWidget {
     );
   }
 
-  Widget _buildHorizontalContent(bool enabled) {
+  Widget _buildHorizontalContent(bool enabled, AppThemeConfig theme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -431,7 +443,7 @@ class GameButton extends StatelessWidget {
     );
   }
 
-  Widget _buildVerticalContent(bool enabled) {
+  Widget _buildVerticalContent(bool enabled, AppThemeConfig theme) {
     final compact = subtitle == null;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -464,9 +476,8 @@ class GameButton extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       gradient: AppTheme.accentGradient(
-                        badgeCount! > 0
-                            ? AppTheme.accentWarm
-                            : AppTheme.textMuted,
+                        badgeCount! > 0 ? theme.warmAccent : theme.textMuted,
+                        theme: theme,
                       ),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
@@ -538,12 +549,13 @@ class GamePrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return GameButton(
       label: label,
       subtitle: subtitle,
       icon: icon,
       onTap: onTap,
-      accentColor: AppTheme.accentPrimary,
+      accentColor: theme.primaryAccent,
       padding: padding,
       minHeight: 72,
       radius: 26,
@@ -575,6 +587,7 @@ class GameSegmentedTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final currentTint = items[selectedIndex].tint;
     return GlassCard(
       tint: currentTint,
@@ -602,6 +615,7 @@ class GameSegmentedTabBar extends StatelessWidget {
                         accentColor: currentTint,
                         emphasized: true,
                         radius: 18,
+                        theme: theme,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -681,12 +695,13 @@ class GameDialogFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return GlassCard(
-      tint: tint ?? AppTheme.accentPrimary,
+      tint: tint ?? theme.primaryAccent,
       radius: AppTheme.radiusLarge,
       highlighted: true,
       padding: padding,
-      decoration: AppTheme.dialogDecoration(tint: tint),
+      decoration: AppTheme.dialogDecoration(tint: tint, theme: theme),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,8 +715,8 @@ class GameDialogFrame extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: theme.textPrimary,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -711,8 +726,8 @@ class GameDialogFrame extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         subtitle!,
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
+                        style: TextStyle(
+                          color: theme.textSecondary,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           height: 1.4,

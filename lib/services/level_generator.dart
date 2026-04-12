@@ -42,8 +42,14 @@ class LevelGenerator {
     int emptyBottles = 2,
     int shuffleMultiplier = 3,
   }) {
-    assert(numColors >= 2 && numColors <= 12, 'numColors must be between 2 and 12');
-    assert(emptyBottles >= 1 && emptyBottles <= 10, 'emptyBottles must be between 1 and 10');
+    assert(
+      numColors >= 2 && numColors <= 12,
+      'numColors must be between 2 and 12',
+    );
+    assert(
+      emptyBottles >= 1 && emptyBottles <= 10,
+      'emptyBottles must be between 1 and 10',
+    );
 
     final colors = GameColors.getColors(numColors);
     final totalBottles = numColors + emptyBottles;
@@ -52,7 +58,9 @@ class LevelGenerator {
     // Each color gets its own full bottle, plus empty workspace bottles.
     List<List<Color>> bottleColors = [];
     for (int i = 0; i < numColors; i++) {
-      bottleColors.add(List.filled(kMaxBottleCapacity, colors[i], growable: true));
+      bottleColors.add(
+        List.filled(kMaxBottleCapacity, colors[i], growable: true),
+      );
     }
     for (int i = 0; i < emptyBottles; i++) {
       bottleColors.add([]);
@@ -188,7 +196,9 @@ class LevelGenerator {
     for (final bottle in bottles) {
       if (bottle.isEmpty) continue;
       if (bottle.length != kMaxBottleCapacity) return false;
-      if (!bottle.every((c) => c.toARGB32() == bottle.first.toARGB32())) return false;
+      if (!bottle.every((c) => c.toARGB32() == bottle.first.toARGB32())) {
+        return false;
+      }
     }
     return true;
   }

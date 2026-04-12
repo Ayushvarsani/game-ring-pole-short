@@ -1,54 +1,48 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme_config.dart';
+
 enum ThemeType {
-  midnight(
-    displayName: 'Midnight',
+  auroraFlux(
+    displayName: 'Aurora Flux',
     coinPrice: 0,
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF16233D), Color(0xFF0D1830), Color(0xFF070D18)],
-      stops: [0.0, 0.5, 1.0],
-    ),
+    config: AppThemeCatalog.auroraFlux,
   ),
-  sunset(
-    displayName: 'Sunset',
-    coinPrice: 150,
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF341321), Color(0xFF58253A), Color(0xFF241435)],
-      stops: [0.0, 0.56, 1.0],
-    ),
+  neonEmber(
+    displayName: 'Neon Ember',
+    coinPrice: 180,
+    config: AppThemeCatalog.neonEmber,
   ),
-  forest(
-    displayName: 'Forest',
-    coinPrice: 150,
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF112A24), Color(0xFF1A4337), Color(0xFF091614)],
-      stops: [0.0, 0.5, 1.0],
-    ),
+  lunarBloom(
+    displayName: 'Lunar Bloom',
+    coinPrice: 220,
+    config: AppThemeCatalog.lunarBloom,
   ),
-  ocean(
-    displayName: 'Ocean',
+  deepCurrent(
+    displayName: 'Deep Current',
     coinPrice: 200,
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF0B2B44), Color(0xFF0F4D65), Color(0xFF071722)],
-      stops: [0.0, 0.52, 1.0],
-    ),
+    config: AppThemeCatalog.deepCurrent,
+  ),
+  velvetPrism(
+    displayName: 'Velvet Prism',
+    coinPrice: 260,
+    config: AppThemeCatalog.velvetPrism,
+  ),
+  solarMist(
+    displayName: 'Solar Mist',
+    coinPrice: 240,
+    config: AppThemeCatalog.solarMist,
   );
 
   final String displayName;
   final int coinPrice;
-  final LinearGradient gradient;
+  final AppThemeConfig config;
 
   const ThemeType({
     required this.displayName,
     required this.coinPrice,
-    required this.gradient,
+    required this.config,
   });
+
+  LinearGradient get gradient => config.backgroundGradient;
 }

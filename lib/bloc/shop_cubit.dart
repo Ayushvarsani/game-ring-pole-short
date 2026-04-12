@@ -33,6 +33,16 @@ class ShopCubit extends Cubit<ShopState> {
   }
 
   ThemeType? _themeByName(String name) {
+    switch (name) {
+      case 'midnight':
+        return ThemeType.auroraFlux;
+      case 'sunset':
+        return ThemeType.neonEmber;
+      case 'forest':
+        return ThemeType.lunarBloom;
+      case 'ocean':
+        return ThemeType.deepCurrent;
+    }
     for (final t in ThemeType.values) {
       if (t.name == name) return t;
     }
@@ -62,7 +72,7 @@ class ShopCubit extends Cubit<ShopState> {
     }
 
     final savedThemeNames = prefs.getStringList(_unlockedThemesKey);
-    final unlockedThemes = <ThemeType>{ThemeType.midnight};
+    final unlockedThemes = <ThemeType>{ThemeType.auroraFlux};
     if (savedThemeNames != null) {
       for (final n in savedThemeNames) {
         final t = _themeByName(n);
@@ -85,7 +95,7 @@ class ShopCubit extends Cubit<ShopState> {
     }
 
     final savedTheme = prefs.getString(_themeTypeKey);
-    ThemeType selectedTheme = ThemeType.midnight;
+    ThemeType selectedTheme = ThemeType.auroraFlux;
     if (savedTheme != null) {
       final t = _themeByName(savedTheme);
       if (t != null) selectedTheme = t;
@@ -103,18 +113,20 @@ class ShopCubit extends Cubit<ShopState> {
 
     unlockedThemes.add(selectedTheme);
     if (!unlockedThemes.contains(selectedTheme)) {
-      selectedTheme = ThemeType.midnight;
+      selectedTheme = ThemeType.auroraFlux;
     }
 
-    emit(ShopState(
-      selectedType: selected,
-      selectedFill: selectedFill,
-      selectedTheme: selectedTheme,
-      coins: coins,
-      unlocked: unlocked,
-      unlockedFills: unlockedFills,
-      unlockedThemes: unlockedThemes,
-    ));
+    emit(
+      ShopState(
+        selectedType: selected,
+        selectedFill: selectedFill,
+        selectedTheme: selectedTheme,
+        coins: coins,
+        unlocked: unlocked,
+        unlockedFills: unlockedFills,
+        unlockedThemes: unlockedThemes,
+      ),
+    );
   }
 
   Future<void> _persistSelection(BottleType type) async {
@@ -185,11 +197,7 @@ class ShopCubit extends Cubit<ShopState> {
     final newCoins = state.coins - price;
     await CoinService.setCoins(newCoins);
     final next = {...state.unlocked, type};
-    emit(state.copyWith(
-      selectedType: type,
-      coins: newCoins,
-      unlocked: next,
-    ));
+    emit(state.copyWith(selectedType: type, coins: newCoins, unlocked: next));
     await _persistSelection(type);
     await _persistUnlocked();
   }
@@ -216,11 +224,9 @@ class ShopCubit extends Cubit<ShopState> {
     final newCoins = state.coins - price;
     await CoinService.setCoins(newCoins);
     final next = {...state.unlockedFills, type};
-    emit(state.copyWith(
-      selectedFill: type,
-      coins: newCoins,
-      unlockedFills: next,
-    ));
+    emit(
+      state.copyWith(selectedFill: type, coins: newCoins, unlockedFills: next),
+    );
     await _persistFillSelection(type);
     await _persistUnlockedFills();
   }
@@ -247,11 +253,13 @@ class ShopCubit extends Cubit<ShopState> {
     final newCoins = state.coins - price;
     await CoinService.setCoins(newCoins);
     final next = {...state.unlockedThemes, type};
-    emit(state.copyWith(
-      selectedTheme: type,
-      coins: newCoins,
-      unlockedThemes: next,
-    ));
+    emit(
+      state.copyWith(
+        selectedTheme: type,
+        coins: newCoins,
+        unlockedThemes: next,
+      ),
+    );
     await _persistThemeSelection(type);
     await _persistUnlockedThemes();
   }

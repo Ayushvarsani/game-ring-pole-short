@@ -23,14 +23,14 @@ class ShopState extends Equatable {
   });
 
   factory ShopState.initial() => ShopState(
-        selectedType: BottleType.classic,
-        selectedFill: FillType.liquid,
-        selectedTheme: ThemeType.midnight,
-        coins: 0,
-        unlocked: {BottleType.classic},
-        unlockedFills: {FillType.liquid},
-        unlockedThemes: {ThemeType.midnight},
-      );
+    selectedType: BottleType.classic,
+    selectedFill: FillType.liquid,
+    selectedTheme: ThemeType.auroraFlux,
+    coins: 0,
+    unlocked: {BottleType.classic},
+    unlockedFills: {FillType.liquid},
+    unlockedThemes: {ThemeType.auroraFlux},
+  );
 
   ShopState copyWith({
     BottleType? selectedType,
@@ -58,12 +58,12 @@ class ShopState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedType,
-        selectedFill,
-        selectedTheme,
-        coins,
-        unlocked,
-        unlockedFills,
-        unlockedThemes,
-      ];
+    selectedType,
+    selectedFill,
+    selectedTheme,
+    coins,
+    unlocked,
+    unlockedFills,
+    unlockedThemes,
+  ];
 }

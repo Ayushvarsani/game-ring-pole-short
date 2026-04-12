@@ -130,21 +130,21 @@ class GameState extends Equatable {
 
   @override
   List<Object?> get props => [
-        bottles,
-        level,
-        selectedBottleIndex,
-        status,
-        moveHistory,
-        moveCount,
-        moveLimit,
-        undoCount,
-        levelStartTime,
-        hintsRemaining,
-        hintSourceIndex,
-        hintDestIndex,
-        animSourceIndex,
-        animDestIndex,
-        animColorCount,
-        animColor,
-      ];
+    bottles,
+    level,
+    selectedBottleIndex,
+    status,
+    moveHistory,
+    moveCount,
+    moveLimit,
+    undoCount,
+    levelStartTime,
+    hintsRemaining,
+    hintSourceIndex,
+    hintDestIndex,
+    animSourceIndex,
+    animDestIndex,
+    animColorCount,
+    animColor,
+  ];
 }

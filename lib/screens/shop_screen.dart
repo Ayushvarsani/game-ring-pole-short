@@ -10,6 +10,7 @@ import '../models/fill_type.dart';
 import '../models/game_colors.dart';
 import '../models/theme_type.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_theme_config.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 
@@ -23,26 +24,20 @@ class ShopScreen extends StatefulWidget {
 class _ShopScreenState extends State<ShopScreen> {
   int _selectedTabIndex = 0;
 
-  static const LinearGradient _shopBackground = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF081321), Color(0xFF0E1A32), Color(0xFF0A1324)],
-  );
-
-  static const List<ShopTabSpec> _tabs = [
+  List<ShopTabSpec> _tabs(AppThemeConfig theme) => [
     ShopTabSpec(
       label: 'Bottles',
-      tint: AppTheme.accentPrimary,
+      tint: theme.primaryAccent,
       icon: Icons.wine_bar_rounded,
     ),
     ShopTabSpec(
       label: 'Contents',
-      tint: AppTheme.accentGold,
+      tint: theme.goldAccent,
       icon: Icons.water_drop_rounded,
     ),
     ShopTabSpec(
       label: 'Themes',
-      tint: AppTheme.accentWarm,
+      tint: theme.warmAccent,
       icon: Icons.palette_rounded,
     ),
   ];
@@ -61,23 +56,24 @@ class _ShopScreenState extends State<ShopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final tabs = _tabs(theme);
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: _shopBackground),
+        decoration: BoxDecoration(gradient: theme.backgroundGradient),
         child: Stack(
           children: [
             Positioned.fill(
               child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: AppTheme.overlayGradient,
-                ),
+                decoration: BoxDecoration(gradient: theme.overlayGradient),
               ),
             ),
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
                   painter: _ShopBackdropPainter(
-                    accent: _tabs[_selectedTabIndex].tint,
+                    accent: tabs[_selectedTabIndex].tint,
+                    theme: theme,
                   ),
                 ),
               ),
@@ -103,7 +99,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         ),
                         SizedBox(height: metrics.sectionSpacing),
                         ShopTabBar(
-                          items: _tabs,
+                          items: tabs,
                           selectedIndex: _selectedTabIndex,
                           compact: metrics.isCompact,
                           onChanged: _handleTabChange,
@@ -201,6 +197,7 @@ class _ShopScreenState extends State<ShopScreen> {
     ShopState shop,
     _ShopLayoutMetrics metrics,
   ) {
+    final theme = AppTheme.of(context);
     final isSelected = type == shop.selectedType;
     final unlocked = shop.isUnlocked(type);
     final locked = !unlocked && type.coinPrice > 0;
@@ -223,7 +220,7 @@ class _ShopScreenState extends State<ShopScreen> {
           : locked
           ? ShopItemStatus.locked
           : ShopItemStatus.active,
-      tint: AppTheme.accentPrimary,
+      tint: theme.primaryAccent,
       affordable: affordable,
       buttonLabel: locked
           ? '${type.coinPrice}'
@@ -258,6 +255,7 @@ class _ShopScreenState extends State<ShopScreen> {
     ShopState shop,
     _ShopLayoutMetrics metrics,
   ) {
+    final theme = AppTheme.of(context);
     final isSelected = type == shop.selectedFill;
     final unlocked = shop.isFillUnlocked(type);
     final locked = !unlocked && type.coinPrice > 0;
@@ -272,7 +270,7 @@ class _ShopScreenState extends State<ShopScreen> {
           : locked
           ? ShopItemStatus.locked
           : ShopItemStatus.active,
-      tint: AppTheme.accentGold,
+      tint: theme.goldAccent,
       affordable: affordable,
       buttonLabel: locked
           ? '${type.coinPrice}'
@@ -307,6 +305,7 @@ class _ShopScreenState extends State<ShopScreen> {
     ShopState shop,
     _ShopLayoutMetrics metrics,
   ) {
+    final theme = AppTheme.of(context);
     final isSelected = type == shop.selectedTheme;
     final unlocked = shop.isThemeUnlocked(type);
     final locked = !unlocked && type.coinPrice > 0;
@@ -320,7 +319,7 @@ class _ShopScreenState extends State<ShopScreen> {
           : locked
           ? ShopItemStatus.locked
           : ShopItemStatus.active,
-      tint: AppTheme.accentWarm,
+      tint: theme.warmAccent,
       affordable: affordable,
       buttonLabel: locked
           ? '${type.coinPrice}'
@@ -409,10 +408,11 @@ class ShopTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     // The header only keeps navigation and currency so the catalog starts
     // higher on the screen and feels more like a compact in-game storefront.
     return GlassCard(
-      tint: AppTheme.accentPrimary,
+      tint: theme.primaryAccent,
       radius: 24,
       blurSigma: 20,
       muted: true,
@@ -424,7 +424,7 @@ class ShopTopBar extends StatelessWidget {
         children: [
           GameIconButton(
             icon: Icons.arrow_back_rounded,
-            tint: AppTheme.accentPrimary,
+            tint: theme.primaryAccent,
             size: compact ? 18 : 19,
             padding: EdgeInsets.all(compact ? 8 : 9),
             onTap: onBack,
@@ -445,8 +445,9 @@ class _ShopCoinsChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return GlassCard(
-      tint: AppTheme.accentGold,
+      tint: theme.goldAccent,
       highlighted: true,
       radius: compact ? 16 : 18,
       padding: EdgeInsets.symmetric(
@@ -458,14 +459,14 @@ class _ShopCoinsChip extends StatelessWidget {
         children: [
           Icon(
             Icons.monetization_on_rounded,
-            color: AppTheme.accentGold,
+            color: theme.goldAccent,
             size: compact ? 15 : 16,
           ),
           const SizedBox(width: 6),
           Text(
             '$coins',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: theme.textPrimary,
               fontSize: compact ? 13 : 14,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.18,
@@ -493,6 +494,7 @@ class ShopTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final currentTint = items[selectedIndex].tint;
 
     return GlassCard(
@@ -523,6 +525,7 @@ class ShopTabBar extends StatelessWidget {
                         accentColor: currentTint,
                         emphasized: true,
                         radius: compact ? 16 : 18,
+                        theme: theme,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -615,25 +618,25 @@ class ShopReferenceCard extends StatelessWidget {
       status == ShopItemStatus.active ||
       (status == ShopItemStatus.locked && affordable);
 
-  Color _cardTint() {
+  Color _cardTint(AppThemeConfig theme) {
     switch (status) {
       case ShopItemStatus.equipped:
         return tint;
       case ShopItemStatus.active:
-        return Color.lerp(tint, AppTheme.accentSuccess, 0.26)!;
+        return Color.lerp(tint, theme.successAccent, 0.26)!;
       case ShopItemStatus.locked:
-        return Color.lerp(AppTheme.bgMedium, AppTheme.textMuted, 0.18)!;
+        return Color.lerp(theme.surfaceMuted, theme.textMuted, 0.18)!;
     }
   }
 
-  Color _badgeTint() {
+  Color _badgeTint(AppThemeConfig theme) {
     switch (status) {
       case ShopItemStatus.equipped:
-        return AppTheme.accentGold;
+        return theme.goldAccent;
       case ShopItemStatus.active:
-        return AppTheme.accentSuccess;
+        return theme.successAccent;
       case ShopItemStatus.locked:
-        return const Color(0xFF6F5968);
+        return Color.lerp(theme.surfaceStrong, theme.dangerAccent, 0.35)!;
     }
   }
 
@@ -650,8 +653,9 @@ class ShopReferenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return GlassCard(
-      tint: _cardTint(),
+      tint: _cardTint(theme),
       radius: compact ? 22 : 24,
       blurSigma: 18,
       highlighted: status == ShopItemStatus.equipped,
@@ -685,9 +689,7 @@ class ShopReferenceCard extends StatelessWidget {
             ),
             child: Center(
               child: GlassCard(
-                tint: status == ShopItemStatus.locked
-                    ? AppTheme.textMuted
-                    : tint,
+                tint: status == ShopItemStatus.locked ? theme.textMuted : tint,
                 radius: compact ? 16 : 18,
                 blurSigma: 12,
                 muted: true,
@@ -706,7 +708,7 @@ class ShopReferenceCard extends StatelessWidget {
                   children: [
                     ShopBadge(
                       label: _badgeLabel(),
-                      tint: _badgeTint(),
+                      tint: _badgeTint(theme),
                       compact: compact,
                     ),
                   ],
@@ -717,7 +719,7 @@ class ShopReferenceCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: theme.textPrimary,
                     fontSize: compact ? 16 : 17,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.08,
@@ -757,13 +759,14 @@ class ShopBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 9,
         vertical: compact ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient(tint, intensity: 0.84),
+        gradient: AppTheme.accentGradient(tint, intensity: 0.84, theme: theme),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
@@ -809,21 +812,22 @@ class ShopActionButton extends StatelessWidget {
   final VoidCallback? onTap;
   final IconData? icon;
 
-  Color _buttonTint() {
+  Color _buttonTint(AppThemeConfig theme) {
     switch (status) {
       case ShopItemStatus.equipped:
-        return AppTheme.accentGold;
+        return theme.goldAccent;
       case ShopItemStatus.active:
-        return AppTheme.accentPrimary;
+        return theme.primaryAccent;
       case ShopItemStatus.locked:
-        return affordable ? AppTheme.accentGold : const Color(0xFF5C667A);
+        return affordable ? theme.goldAccent : theme.textMuted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     final enabled = onTap != null;
-    final buttonTint = _buttonTint();
+    final buttonTint = _buttonTint(theme);
     final textAlpha = enabled ? 1.0 : 0.7;
 
     return GamePressable(
@@ -845,6 +849,7 @@ class ShopActionButton extends StatelessWidget {
                 : AppTheme.accentGradient(
                     buttonTint,
                     intensity: status == ShopItemStatus.equipped ? 0.92 : 0.88,
+                    theme: theme,
                   ),
             borderRadius: BorderRadius.circular(compact ? 12 : 13),
             border: Border.all(
@@ -864,6 +869,7 @@ class ShopActionButton extends StatelessWidget {
                 : AppTheme.premiumShadows(
                     buttonTint,
                     emphasized: enabled && status != ShopItemStatus.locked,
+                    theme: theme,
                   ),
           ),
           padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12),
@@ -974,9 +980,10 @@ class _ThemePreview extends StatelessWidget {
 }
 
 class _ShopBackdropPainter extends CustomPainter {
-  const _ShopBackdropPainter({required this.accent});
+  const _ShopBackdropPainter({required this.accent, required this.theme});
 
   final Color accent;
+  final AppThemeConfig theme;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -985,7 +992,7 @@ class _ShopBackdropPainter extends CustomPainter {
           RadialGradient(
             colors: [
               accent.withValues(alpha: 0.14),
-              AppTheme.accentPrimary.withValues(alpha: 0.08),
+              theme.ambientGlow.withValues(alpha: 0.08),
               Colors.transparent,
             ],
           ).createShader(
@@ -1004,7 +1011,7 @@ class _ShopBackdropPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              AppTheme.accentSecondary.withValues(alpha: 0.08),
+              theme.ambientGlowSecondary.withValues(alpha: 0.08),
               Colors.transparent,
             ],
           ).createShader(
@@ -1022,6 +1029,6 @@ class _ShopBackdropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ShopBackdropPainter oldDelegate) {
-    return oldDelegate.accent != accent;
+    return oldDelegate.accent != accent || oldDelegate.theme != theme;
   }
 }

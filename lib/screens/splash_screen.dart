@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/shop_cubit.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
@@ -21,18 +19,18 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..addListener(() {
-        setState(() {});
-      })..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
-      });
+    _progressController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..addListener(() {
+            setState(() {});
+          })
+          ..addStatusListener((status) {
+            if (status == AnimationStatus.completed) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
+            }
+          });
 
     _pulseController = AnimationController(
       vsync: this,
@@ -58,11 +56,12 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final theme = AppTheme.of(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(gradient: context.watch<ShopCubit>().state.selectedTheme.gradient),
+        decoration: BoxDecoration(gradient: theme.backgroundGradient),
         child: Stack(
           children: [
             // Decorative background orbs
@@ -82,9 +81,11 @@ class _SplashScreenState extends State<SplashScreen>
                         gradient: RadialGradient(
                           colors: [
                             (i.isEven
-                                    ? AppTheme.accentPrimary
-                                    : AppTheme.accentSecondary)
-                                .withValues(alpha: 0.08 + _pulseController.value * 0.04),
+                                    ? theme.primaryAccent
+                                    : theme.secondaryAccent)
+                                .withValues(
+                                  alpha: 0.08 + _pulseController.value * 0.04,
+                                ),
                             Colors.transparent,
                           ],
                         ),
@@ -113,24 +114,25 @@ class _SplashScreenState extends State<SplashScreen>
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                AppTheme.accentSecondary.withValues(alpha: 0.3),
-                                AppTheme.accentPrimary.withValues(alpha: 0.1),
+                                theme.secondaryAccent.withValues(alpha: 0.3),
+                                theme.primaryAccent.withValues(alpha: 0.1),
                                 Colors.transparent,
                               ],
                               stops: const [0.0, 0.5, 1.0],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.accentSecondary
-                                    .withValues(alpha: 0.2 + _pulseController.value * 0.15),
+                                color: theme.secondaryAccent.withValues(
+                                  alpha: 0.2 + _pulseController.value * 0.15,
+                                ),
                                 blurRadius: 30,
                                 spreadRadius: 8,
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.water_drop_rounded,
-                            color: AppTheme.accentSecondary,
+                            color: theme.secondaryAccent,
                             size: 80,
                           ),
                         ),
@@ -142,13 +144,12 @@ class _SplashScreenState extends State<SplashScreen>
 
                   // Title with gradient-like appearance
                   ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [AppTheme.textPrimary, AppTheme.accentSecondary],
-                    ).createShader(bounds),
-                    child: const Text(
+                    shaderCallback: (bounds) =>
+                        theme.brandingGradient.createShader(bounds),
+                    child: Text(
                       'WATER SORT',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: theme.textPrimary,
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
@@ -160,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen>
                   Text(
                     'PUZZLE',
                     style: TextStyle(
-                      color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                      color: theme.textSecondary.withValues(alpha: 0.8),
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 8,
@@ -180,7 +181,7 @@ class _SplashScreenState extends State<SplashScreen>
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.accentPrimary.withValues(
+                                color: theme.primaryAccent.withValues(
                                   alpha: 0.3 * _progressController.value,
                                 ),
                                 blurRadius: 12,
@@ -192,9 +193,11 @@ class _SplashScreenState extends State<SplashScreen>
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
                               value: _progressController.value,
-                              backgroundColor: Colors.white.withValues(alpha: 0.08),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                AppTheme.accentPrimary,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.08,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                theme.primaryAccent,
                               ),
                             ),
                           ),
@@ -203,7 +206,7 @@ class _SplashScreenState extends State<SplashScreen>
                         Text(
                           'Loading... ${(_progressController.value * 100).toInt()}%',
                           style: TextStyle(
-                            color: AppTheme.textMuted,
+                            color: theme.textMuted,
                             fontSize: 13,
                             letterSpacing: 1,
                           ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/splash_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'bloc/settings_cubit.dart';
 import 'bloc/shop_cubit.dart';
+import 'bloc/shop_state.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 // import 'services/analytics_service.dart'; // Uncomment when Firebase is configured
 
@@ -14,14 +16,7 @@ void main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   // Set system UI overlay style for immersive dark theme
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.systemNavColor,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
+  SystemChrome.setSystemUIOverlayStyle(AppTheme.overlayStyle());
 
   // ── Firebase initialization ──
   // Uncomment these lines when Firebase is configured:
@@ -43,11 +38,20 @@ class WaterSortApp extends StatelessWidget {
         BlocProvider(create: (_) => SettingsCubit()),
         BlocProvider(create: (_) => ShopCubit()),
       ],
-      child: MaterialApp(
-        title: 'Water Sort Puzzle',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.materialTheme,
-        home: const SplashScreen(),
+      child: BlocBuilder<ShopCubit, ShopState>(
+        builder: (context, state) {
+          final activeTheme = state.selectedTheme.config;
+          SystemChrome.setSystemUIOverlayStyle(
+            AppTheme.overlayStyle(activeTheme),
+          );
+
+          return MaterialApp(
+            title: 'Water Sort Puzzle',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.materialTheme(activeTheme),
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

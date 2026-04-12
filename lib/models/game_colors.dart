@@ -23,23 +23,41 @@ class GameColors {
   /// Returns a list of [count] distinct game colors.
   static List<Color> getColors(int count) {
     const allColors = [
-      red, blue, green, yellow, purple, orange,
-      pink, cyan, lime, teal, deepOrange, indigo,
-      brown, grey,
+      red,
+      blue,
+      green,
+      yellow,
+      purple,
+      orange,
+      pink,
+      cyan,
+      lime,
+      teal,
+      deepOrange,
+      indigo,
+      brown,
+      grey,
     ];
-    assert(count <= allColors.length, 'Cannot request more than ${allColors.length} colors');
+    assert(
+      count <= allColors.length,
+      'Cannot request more than ${allColors.length} colors',
+    );
     return allColors.sublist(0, count);
   }
 
   /// Returns a slightly lighter version of the color (for liquid highlights).
   static Color lighten(Color color, [double amount = 0.15]) {
     final hsl = HSLColor.fromColor(color);
-    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+    return hsl
+        .withLightness((hsl.lightness + amount).clamp(0.0, 1.0))
+        .toColor();
   }
 
   /// Returns a slightly darker version of the color (for liquid shadows).
   static Color darken(Color color, [double amount = 0.15]) {
     final hsl = HSLColor.fromColor(color);
-    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+    return hsl
+        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+        .toColor();
   }
 }

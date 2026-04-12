@@ -20,8 +20,10 @@ class SettingsCubit extends Cubit<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     final soundEnabled = prefs.getBool(_soundKey) ?? true;
     final vibrateEnabled = prefs.getBool(_vibrateKey) ?? true;
-    emit(SettingsState(soundEnabled: soundEnabled, vibrateEnabled: vibrateEnabled));
-    
+    emit(
+      SettingsState(soundEnabled: soundEnabled, vibrateEnabled: vibrateEnabled),
+    );
+
     _updateBgmPlayback(soundEnabled);
   }
 
@@ -78,7 +80,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       HapticFeedback.selectionClick();
     }
   }
-  
+
   @override
   Future<void> close() {
     _bgmPlayer.dispose();
