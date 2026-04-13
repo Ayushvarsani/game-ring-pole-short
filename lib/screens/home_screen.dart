@@ -245,8 +245,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   animation: Listenable.merge([
                                     _ambientController,
                                     _wobbleController,
-                                     _floatController,
-                                     _pulseController,
+                                    _floatController,
+                                    _pulseController,
                                   ]),
                                   builder: (context, child) {
                                     return _BottleHeroShowcase(
@@ -257,9 +257,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       progress: _ambientController.value,
                                       wobblePhase:
                                           _wobbleController.value * 2 * pi,
-                                       floatPhase:
-                                           _floatController.value * 2 * pi,
-                                       pulseValue: _pulseController.value,
+                                      floatPhase:
+                                          _floatController.value * 2 * pi,
+                                      pulseValue: _pulseController.value,
                                       onPlay: _startGame,
                                       theme: theme,
                                     );
@@ -465,7 +465,7 @@ class _HomeBrandBlock extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Animated glowing color ring simulating liquid energy
                   IgnorePointer(
                     child: Transform.rotate(
@@ -489,15 +489,38 @@ class _HomeBrandBlock extends StatelessWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.primaryAccent.withValues(alpha: 0.25),
+                              color: theme.primaryAccent.withValues(
+                                alpha: 0.25,
+                              ),
                               blurRadius: 40,
                               spreadRadius: -5,
                             ),
                             BoxShadow(
-                              color: theme.secondaryAccent.withValues(alpha: 0.2),
+                              color: theme.secondaryAccent.withValues(
+                                alpha: 0.2,
+                              ),
                               blurRadius: 60,
                               spreadRadius: 5,
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Floating droplets/bubbles around logo
+                  IgnorePointer(
+                    child: SizedBox(
+                      width: metrics.logoHeight * 1.6,
+                      height: metrics.logoHeight * 1.6,
+                      child: CustomPaint(
+                        painter: _LogoBubblePainter(
+                          progress: ambientProgress,
+                          colors: [
+                            theme.primaryAccent,
+                            theme.secondaryAccent,
+                            theme.goldAccent,
+                            Colors.cyanAccent,
                           ],
                         ),
                       ),
@@ -750,7 +773,7 @@ class _BottleHeroShowcase extends StatelessWidget {
               ),
             ),
           ),
-  // Stronger center radial glow — pulses more visibly
+          // Stronger center radial glow — pulses more visibly
           Positioned(
             top: metrics.heroHeight * 0.12,
             left: metrics.heroWidth * 0.15,
@@ -759,9 +782,7 @@ class _BottleHeroShowcase extends StatelessWidget {
               child: _HeroGroundGlow(
                 width: metrics.heroWidth * 0.7,
                 height: metrics.heroHeight * 0.42,
-                color: theme.boardHalo.withValues(
-                  alpha: 0.12 + (pulse * 0.06),
-                ),
+                color: theme.boardHalo.withValues(alpha: 0.12 + (pulse * 0.06)),
               ),
             ),
           ),
@@ -790,8 +811,7 @@ class _BottleHeroShowcase extends StatelessWidget {
             final bottle = bottles[index];
             // Independent float per bottle using the dedicated float phase
             final bob =
-                sin(floatPhase + (index * 1.1)) *
-                (metrics.compact ? 3.5 : 5.0);
+                sin(floatPhase + (index * 1.1)) * (metrics.compact ? 3.5 : 5.0);
             final tilt = sin(wobblePhase + (index * 0.7)) * spec.tilt;
             final scaledWidth = metrics.bottleWidth * spec.scale;
             final scaledHeight = metrics.bottleHeight * spec.scale;
@@ -832,7 +852,8 @@ class _BottleHeroShowcase extends StatelessWidget {
           // ── Sparkle ring around platform ─────────────────────────
           Positioned(
             left: (metrics.heroWidth - metrics.ringWidth) / 2,
-            bottom: metrics.playOrbSize * 0.46 +
+            bottom:
+                metrics.playOrbSize * 0.46 +
                 metrics.bottleHeight * 0.02 -
                 (metrics.ringHeight * 0.02),
             child: IgnorePointer(
@@ -1035,96 +1056,96 @@ class _IntegratedPlayOrb extends StatelessWidget {
       child: Transform.scale(
         scale: breathScale,
         child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          IgnorePointer(
-            child: Container(
-              width: size * 1.04,
-              height: size * 1.04,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.boardHalo.withValues(alpha: glowStrength),
-                    blurRadius: size * 0.21,
-                    spreadRadius: -(size * 0.1),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    blurRadius: size * 0.16,
-                    spreadRadius: -(size * 0.1),
-                    offset: Offset(0, size * 0.12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(
-            width: size,
-            height: size,
-            child: CustomPaint(
-              painter: _PlayOrbFramePainter(progress: progress, theme: theme),
-              child: GlassCard(
-                tint: theme.secondaryAccent,
-                radius: size / 2,
-                blurSigma: 16,
-                muted: true,
-                padding: EdgeInsets.zero,
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            IgnorePointer(
+              child: Container(
+                width: size * 1.04,
+                height: size * 1.04,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(size / 2),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.12),
-                      theme.surface.withValues(alpha: 0.5),
-                      theme.backgroundDeep.withValues(alpha: 0.72),
-                    ],
-                  ),
+                  shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: theme.boardAura.withValues(alpha: glowStrength),
-                      blurRadius: size * 0.18,
-                      spreadRadius: -(size * 0.16),
-                      offset: Offset(0, size * 0.08),
+                      color: theme.boardHalo.withValues(alpha: glowStrength),
+                      blurRadius: size * 0.21,
+                      spreadRadius: -(size * 0.1),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.16),
+                      blurRadius: size * 0.16,
+                      spreadRadius: -(size * 0.1),
+                      offset: Offset(0, size * 0.12),
                     ),
                   ],
                 ),
-                child: SizedBox.expand(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: size * 0.13),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white.withValues(alpha: 0.96),
-                          size: size * 0.27,
-                        ),
-                        SizedBox(height: size * 0.008),
-                        Text(
-                          'Play',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.94),
-                            fontSize: size * 0.155,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.24,
-                          ),
-                        ),
+              ),
+            ),
+            SizedBox(
+              width: size,
+              height: size,
+              child: CustomPaint(
+                painter: _PlayOrbFramePainter(progress: progress, theme: theme),
+                child: GlassCard(
+                  tint: theme.secondaryAccent,
+                  radius: size / 2,
+                  blurSigma: 16,
+                  muted: true,
+                  padding: EdgeInsets.zero,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(size / 2),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        theme.surface.withValues(alpha: 0.5),
+                        theme.backgroundDeep.withValues(alpha: 0.72),
                       ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.boardAura.withValues(alpha: glowStrength),
+                        blurRadius: size * 0.18,
+                        spreadRadius: -(size * 0.16),
+                        offset: Offset(0, size * 0.08),
+                      ),
+                    ],
+                  ),
+                  child: SizedBox.expand(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: size * 0.13),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white.withValues(alpha: 0.96),
+                            size: size * 0.27,
+                          ),
+                          SizedBox(height: size * 0.008),
+                          Text(
+                            'Play',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.94),
+                              fontSize: size * 0.155,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.24,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -1468,11 +1489,7 @@ class _SparkleRingPainter extends CustomPainter {
       final y = cy + ry * sin(angle);
       // Brightness varies per dot
       final alpha = 0.08 + ((sin(angle + phase * 1.2) + 1) / 2) * 0.12;
-      final colors = [
-        theme.boardHalo,
-        theme.boardAura,
-        theme.ambientGlow,
-      ];
+      final colors = [theme.boardHalo, theme.boardAura, theme.ambientGlow];
       final paint = Paint()
         ..color = colors[i % colors.length].withValues(alpha: alpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
@@ -1483,6 +1500,63 @@ class _SparkleRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SparkleRingPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.theme != oldDelegate.theme;
+    return oldDelegate.progress != progress ||
+        oldDelegate.theme != oldDelegate.theme;
+  }
+}
+
+class _LogoBubblePainter extends CustomPainter {
+  final double progress;
+  final List<Color> colors;
+
+  _LogoBubblePainter({required this.progress, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = Random(42);
+    final paint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+
+    for (int i = 0; i < 18; i++) {
+      final color = colors[i % colors.length];
+
+      final startX = rand.nextDouble() * size.width;
+      final speed = rand.nextDouble() * 1.0 + 0.5; // Upward travel speed factor
+      final phase = rand.nextDouble() * 2 * pi;
+      final baseSize = rand.nextDouble() * 5.0 + 2.0;
+
+      // Map progress to a continuous upward wrap
+      // progress goes from 0..1 (12 sec). Multiply to make it travel faster
+      final rawY = size.height - (progress * size.height * 2.5 * speed);
+      // Because we modulo size.height, bubbles wrap bottom-to-top infinitely
+      final y = (rawY % size.height + size.height) % size.height;
+
+      // Sine wave drift left and right
+      final x = startX + sin(progress * 2 * pi * speed + phase) * 12.0;
+
+      // Soft glow opacity pulse
+      final opacity = (sin(progress * 4 * pi + phase) + 1) / 2 * 0.35 + 0.15;
+
+      paint.color = color.withValues(alpha: opacity);
+
+      if (rand.nextBool()) {
+        paint.maskFilter = const MaskFilter.blur(
+          BlurStyle.normal,
+          5.0,
+        ); // Deeper focus
+      } else {
+        paint.maskFilter = const MaskFilter.blur(
+          BlurStyle.normal,
+          2.0,
+        ); // Sharper
+      }
+
+      canvas.drawCircle(Offset(x, y), baseSize, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LogoBubblePainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
