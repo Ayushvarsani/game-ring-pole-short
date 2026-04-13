@@ -33,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   late final AnimationController _wobbleController;
   late final AnimationController _ambientController;
+  late final AnimationController _floatController;
+  late final AnimationController _pulseController;
 
   final List<BottleModel> _heroBottles = const [
     BottleModel(
@@ -93,12 +95,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
+    // Dedicated smooth float for bottles (slower, independent of wobble)
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3800),
+    )..repeat();
+    // Slow breathing pulse for the Play orb scale
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _wobbleController.dispose();
     _ambientController.dispose();
+    _floatController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -213,10 +227,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               onOpenSettings: _openSettings,
                             ),
                             SizedBox(height: metrics.brandGap),
-                            _HomeBrandBlock(
-                              logoAsset: _homeLogoAsset,
-                              title: _gameName,
-                              metrics: metrics,
+                            AnimatedBuilder(
+                              animation: _ambientController,
+                              builder: (context, child) {
+                                return _HomeBrandBlock(
+                                  logoAsset: _homeLogoAsset,
+                                  title: _gameName,
+                                  metrics: metrics,
+                                  ambientProgress: _ambientController.value,
+                                );
+                              },
                             ),
                             SizedBox(height: metrics.brandToHeroGap),
                             Expanded(
@@ -225,6 +245,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   animation: Listenable.merge([
                                     _ambientController,
                                     _wobbleController,
+                                     _floatController,
+                                     _pulseController,
                                   ]),
                                   builder: (context, child) {
                                     return _BottleHeroShowcase(
@@ -235,6 +257,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       progress: _ambientController.value,
                                       wobblePhase:
                                           _wobbleController.value * 2 * pi,
+                                       floatPhase:
+                                           _floatController.value * 2 * pi,
+                                       pulseValue: _pulseController.value,
                                       onPlay: _startGame,
                                       theme: theme,
                                     );
@@ -398,11 +423,13 @@ class _HomeBrandBlock extends StatelessWidget {
     required this.logoAsset,
     required this.title,
     required this.metrics,
+    required this.ambientProgress,
   });
 
   final String logoAsset;
   final String title;
   final _HomeViewportMetrics metrics;
+  final double ambientProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -421,6 +448,7 @@ class _HomeBrandBlock extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // Base soft radial background
                   IgnorePointer(
                     child: Container(
                       width: metrics.logoHeight * 1.9,
@@ -437,6 +465,46 @@ class _HomeBrandBlock extends StatelessWidget {
                       ),
                     ),
                   ),
+                  
+                  // Animated glowing color ring simulating liquid energy
+                  IgnorePointer(
+                    child: Transform.rotate(
+                      angle: ambientProgress * 2 * pi,
+                      child: Container(
+                        width: metrics.logoHeight * 1.15,
+                        height: metrics.logoHeight * 1.15,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: SweepGradient(
+                            colors: [
+                              Colors.transparent,
+                              theme.primaryAccent.withValues(alpha: 0.1),
+                              theme.secondaryAccent.withValues(alpha: 0.45),
+                              theme.goldAccent.withValues(alpha: 0.55),
+                              theme.primaryAccent.withValues(alpha: 0.45),
+                              theme.secondaryAccent.withValues(alpha: 0.1),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.primaryAccent.withValues(alpha: 0.25),
+                              blurRadius: 40,
+                              spreadRadius: -5,
+                            ),
+                            BoxShadow(
+                              color: theme.secondaryAccent.withValues(alpha: 0.2),
+                              blurRadius: 60,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // The actual logo
                   DecoratedBox(
                     decoration: BoxDecoration(
                       boxShadow: [
@@ -636,6 +704,8 @@ class _BottleHeroShowcase extends StatelessWidget {
     required this.metrics,
     required this.progress,
     required this.wobblePhase,
+    required this.floatPhase,
+    required this.pulseValue,
     required this.onPlay,
     required this.theme,
   });
@@ -654,6 +724,8 @@ class _BottleHeroShowcase extends StatelessWidget {
   final _HomeViewportMetrics metrics;
   final double progress;
   final double wobblePhase;
+  final double floatPhase;
+  final double pulseValue;
   final VoidCallback onPlay;
   final AppThemeConfig theme;
 
@@ -678,15 +750,18 @@ class _BottleHeroShowcase extends StatelessWidget {
               ),
             ),
           ),
+  // Stronger center radial glow — pulses more visibly
           Positioned(
             top: metrics.heroHeight * 0.12,
-            left: metrics.heroWidth * 0.2,
-            right: metrics.heroWidth * 0.2,
+            left: metrics.heroWidth * 0.15,
+            right: metrics.heroWidth * 0.15,
             child: IgnorePointer(
               child: _HeroGroundGlow(
-                width: metrics.heroWidth * 0.6,
-                height: metrics.heroHeight * 0.38,
-                color: theme.boardHalo.withValues(alpha: 0.1 + (pulse * 0.03)),
+                width: metrics.heroWidth * 0.7,
+                height: metrics.heroHeight * 0.42,
+                color: theme.boardHalo.withValues(
+                  alpha: 0.12 + (pulse * 0.06),
+                ),
               ),
             ),
           ),
@@ -713,9 +788,10 @@ class _BottleHeroShowcase extends StatelessWidget {
           ...List.generate(showcaseCount, (index) {
             final spec = _specs[index];
             final bottle = bottles[index];
+            // Independent float per bottle using the dedicated float phase
             final bob =
-                sin(progress * 2 * pi + (index * 0.8)) *
-                (metrics.compact ? 1.8 : 2.6);
+                sin(floatPhase + (index * 1.1)) *
+                (metrics.compact ? 3.5 : 5.0);
             final tilt = sin(wobblePhase + (index * 0.7)) * spec.tilt;
             final scaledWidth = metrics.bottleWidth * spec.scale;
             final scaledHeight = metrics.bottleHeight * spec.scale;
@@ -748,8 +824,28 @@ class _BottleHeroShowcase extends StatelessWidget {
             child: _IntegratedPlayOrb(
               size: metrics.playOrbSize,
               progress: progress,
+              pulseValue: pulseValue,
               onTap: onPlay,
               theme: theme,
+            ),
+          ),
+          // ── Sparkle ring around platform ─────────────────────────
+          Positioned(
+            left: (metrics.heroWidth - metrics.ringWidth) / 2,
+            bottom: metrics.playOrbSize * 0.46 +
+                metrics.bottleHeight * 0.02 -
+                (metrics.ringHeight * 0.02),
+            child: IgnorePointer(
+              child: SizedBox(
+                width: metrics.ringWidth,
+                height: metrics.ringHeight,
+                child: CustomPaint(
+                  painter: _SparkleRingPainter(
+                    progress: progress,
+                    theme: theme,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -914,12 +1010,14 @@ class _IntegratedPlayOrb extends StatelessWidget {
   const _IntegratedPlayOrb({
     required this.size,
     required this.progress,
+    required this.pulseValue,
     required this.onTap,
     required this.theme,
   });
 
   final double size;
   final double progress;
+  final double pulseValue;
   final VoidCallback onTap;
   final AppThemeConfig theme;
 
@@ -927,12 +1025,16 @@ class _IntegratedPlayOrb extends StatelessWidget {
   Widget build(BuildContext context) {
     final pulse = (sin(progress * 2 * pi) + 1) / 2;
     final glowStrength = 0.09 + (pulse * 0.03);
+    // Breathing scale: 1.0 → 1.035 → 1.0
+    final breathScale = 1.0 + (pulseValue * 0.035);
 
     return GamePressable(
       onTap: onTap,
       pressedScale: 0.97,
       hoverScale: 1.015,
-      child: Stack(
+      child: Transform.scale(
+        scale: breathScale,
+        child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
@@ -1022,6 +1124,7 @@ class _IntegratedPlayOrb extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -1317,19 +1420,21 @@ class _AmbientParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final phase = progress * 2 * pi;
     final colors = [
-      theme.textPrimary.withValues(alpha: 0.05),
-      theme.ambientGlow.withValues(alpha: 0.05),
-      theme.ambientGlowSecondary.withValues(alpha: 0.05),
+      theme.textPrimary.withValues(alpha: 0.08),
+      theme.ambientGlow.withValues(alpha: 0.09),
+      theme.ambientGlowSecondary.withValues(alpha: 0.09),
+      theme.boardHalo.withValues(alpha: 0.07),
     ];
 
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 22; i++) {
       final dx =
-          size.width * (0.08 + ((((i * 37) % 100) / 100) * 0.84)) +
-          sin((phase * (0.58 + ((i % 5) * 0.06))) + i) * 6;
+          size.width * (0.06 + ((((i * 37) % 100) / 100) * 0.88)) +
+          sin((phase * (0.52 + ((i % 5) * 0.06))) + i) * 8;
       final dy =
-          size.height * (0.08 + ((((i * 23) % 100) / 100) * 0.76)) +
-          cos((phase * (0.48 + ((i % 4) * 0.04))) + (i * 0.8)) * 6;
-      final radius = i % 4 == 0 ? 1.4 : 0.9;
+          size.height * (0.06 + ((((i * 23) % 100) / 100) * 0.80)) +
+          cos((phase * (0.44 + ((i % 4) * 0.04))) + (i * 0.8)) * 8;
+      // Vary sizes: tiny sparkles and slightly larger glows
+      final radius = i % 5 == 0 ? 2.0 : (i % 3 == 0 ? 1.4 : 0.9);
       final paint = Paint()..color = colors[i % colors.length];
       canvas.drawCircle(Offset(dx, dy), radius, paint);
     }
@@ -1338,5 +1443,46 @@ class _AmbientParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _AmbientParticlePainter oldDelegate) {
     return oldDelegate.progress != progress || oldDelegate.theme != theme;
+  }
+}
+
+class _SparkleRingPainter extends CustomPainter {
+  const _SparkleRingPainter({required this.progress, required this.theme});
+
+  final double progress;
+  final AppThemeConfig theme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final phase = progress * 2 * pi;
+    final cx = size.width / 2;
+    final cy = size.height * 0.5;
+    final rx = size.width * 0.46;
+    final ry = size.height * 0.31;
+
+    // Draw 6 tiny sparkle dots that orbit around the ring ellipse
+    const sparkleCount = 6;
+    for (int i = 0; i < sparkleCount; i++) {
+      final angle = (i / sparkleCount) * 2 * pi + phase * 0.6;
+      final x = cx + rx * cos(angle);
+      final y = cy + ry * sin(angle);
+      // Brightness varies per dot
+      final alpha = 0.08 + ((sin(angle + phase * 1.2) + 1) / 2) * 0.12;
+      final colors = [
+        theme.boardHalo,
+        theme.boardAura,
+        theme.ambientGlow,
+      ];
+      final paint = Paint()
+        ..color = colors[i % colors.length].withValues(alpha: alpha)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+      final r = i % 2 == 0 ? 2.2 : 1.4;
+      canvas.drawCircle(Offset(x, y), r, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparkleRingPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.theme != oldDelegate.theme;
   }
 }
