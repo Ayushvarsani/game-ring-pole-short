@@ -448,24 +448,6 @@ class _HomeBrandBlock extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Base soft radial background
-                  IgnorePointer(
-                    child: Container(
-                      width: metrics.logoHeight * 1.9,
-                      height: metrics.logoHeight * 1.15,
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            logoGlow.withValues(alpha: 0.22),
-                            logoGlow.withValues(alpha: 0.12),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.42, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-
                   // Animated glowing color ring simulating liquid energy
                   IgnorePointer(
                     child: Transform.rotate(
@@ -528,32 +510,37 @@ class _HomeBrandBlock extends StatelessWidget {
                   ),
 
                   // The actual logo
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.brandShadowColor.withValues(alpha: 0.2),
-                          blurRadius: 28,
-                          spreadRadius: -18,
-                          offset: const Offset(0, 12),
-                        ),
-                        BoxShadow(
-                          color: logoGlow.withValues(alpha: 0.26),
-                          blurRadius: 42,
-                          spreadRadius: -22,
-                        ),
-                        BoxShadow(
-                          color: logoGlow.withValues(alpha: 0.14),
-                          blurRadius: 64,
-                          spreadRadius: -34,
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      logoAsset,
-                      height: metrics.logoHeight,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+                  Transform.translate(
+                    offset: Offset(0, sin(ambientProgress * 4 * pi) * 5.0),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.brandShadowColor.withValues(
+                              alpha: 0.2,
+                            ),
+                            blurRadius: 28,
+                            spreadRadius: -18,
+                            offset: const Offset(0, 12),
+                          ),
+                          BoxShadow(
+                            color: logoGlow.withValues(alpha: 0.26),
+                            blurRadius: 42,
+                            spreadRadius: -22,
+                          ),
+                          BoxShadow(
+                            color: logoGlow.withValues(alpha: 0.14),
+                            blurRadius: 64,
+                            spreadRadius: -34,
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        logoAsset,
+                        height: metrics.logoHeight,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
                     ),
                   ),
                 ],
