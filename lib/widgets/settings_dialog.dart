@@ -54,7 +54,6 @@ class SettingsDialog extends StatelessWidget {
   void _showNotice(BuildContext context, String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -92,7 +91,25 @@ class SettingsDialog extends StatelessWidget {
       return;
     }
 
-    _showNotice(context, 'Feedback channel is ready for future integration.');
+    // Close the settings dialog first, then show feedback sheet
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showFeedbackSheet(context);
+    });
+  }
+
+  void _showFeedbackSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _FeedbackSheet(
+        onSubmit: (text) {
+          Navigator.of(sheetContext).pop();
+          _showNotice(context, 'Thanks for your feedback! 🙏');
+        },
+      ),
+    );
   }
 
   void _handleQuitGame(BuildContext context) {
@@ -100,17 +117,14 @@ class SettingsDialog extends StatelessWidget {
     cubit.playClickSound();
     cubit.triggerHeavyHaptic();
 
-    final navigator = Navigator.of(context);
-    navigator.pop();
+    Navigator.of(context).pop();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (onQuitGame != null) {
         onQuitGame!.call();
         return;
       }
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
+      SystemNavigator.pop();
     });
   }
 
@@ -118,24 +132,15 @@ class SettingsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final screenSize = MediaQuery.sizeOf(context);
-    final modalWidth = math.min(screenSize.width * 0.8, 408.0);
-    final modalHeight = math.min(screenSize.height * 0.7, 500.0);
+    final modalWidth = math.min(screenSize.width * 0.88, 408.0);
+    const rowHeight = 58.0;
     const headerHeight = 54.0;
-    const headerGap = 10.0;
-    const topPadding = 14.0;
-    const bottomPadding = 12.0;
     const horizontalPadding = 16.0;
-    const separatorHeight = 1.0;
-    final rowHeight =
-        ((modalHeight -
-                    topPadding -
-                    bottomPadding -
-                    headerHeight -
-                    headerGap -
-                    (separatorHeight * 5)) /
-                6)
-            .clamp(52.0, 66.0)
-            .toDouble();
+    const topPadding = 14.0;
+    const bottomPadding = 14.0;
+    const rowGap = 10.0; // consistent rhythm: same as between Sound/Music/Vib
+    const actionStripHeight = 52.0;
+
     final shareTint = Color.lerp(
       theme.textPrimary,
       theme.secondaryAccent,
@@ -153,7 +158,7 @@ class SettingsDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, state) {
-          final entries = <_SettingsEntry>[
+          final toggleEntries = <_SettingsEntry>[
             _SettingsEntry(
               icon: state.soundEnabled
                   ? Icons.volume_up_rounded
@@ -196,45 +201,10 @@ class SettingsDialog extends StatelessWidget {
                 onChanged: (value) => _toggleVibration(context, value),
               ),
             ),
-            _SettingsEntry(
-              icon: Icons.ios_share_rounded,
-              tint: shareTint,
-              title: 'Share',
-              subtitle: 'Invite friends',
-              onTap: () => _handleShare(context),
-              trailing: _SettingsActionControl(
-                icon: Icons.arrow_outward_rounded,
-                tint: shareTint,
-              ),
-            ),
-            _SettingsEntry(
-              icon: Icons.forum_rounded,
-              tint: feedbackTint,
-              title: 'Feedback',
-              subtitle: 'Send suggestions',
-              onTap: () => _handleFeedback(context),
-              trailing: _SettingsActionControl(
-                icon: Icons.chat_bubble_outline_rounded,
-                tint: feedbackTint,
-              ),
-            ),
-            _SettingsEntry(
-              icon: Icons.logout_rounded,
-              tint: quitTint,
-              title: 'Quit Game',
-              subtitle: 'Exit current session',
-              onTap: () => _handleQuitGame(context),
-              trailing: _SettingsActionControl(
-                icon: Icons.power_settings_new_rounded,
-                tint: quitTint,
-                emphasized: true,
-              ),
-            ),
           ];
 
           return SizedBox(
             width: modalWidth,
-            height: modalHeight,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -296,13 +266,21 @@ class SettingsDialog extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color.lerp(theme.surfaceStrong, Colors.white, 0.04)!,
+                          Color.lerp(
+                            theme.surfaceStrong,
+                            Colors.white,
+                            0.04,
+                          )!,
                           Color.lerp(
                             theme.surface,
                             theme.backgroundDark,
                             0.22,
                           )!,
-                          Color.lerp(theme.backgroundDeep, Colors.black, 0.05)!,
+                          Color.lerp(
+                            theme.backgroundDeep,
+                            Colors.black,
+                            0.05,
+                          )!,
                         ],
                         stops: const [0.0, 0.58, 1.0],
                       ),
@@ -341,19 +319,28 @@ class SettingsDialog extends StatelessWidget {
                             bottomPadding,
                           ),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              _SettingsHeader(
-                                onClose: () => _closeModal(context),
+                              // ── Header ──────────────────────────────────
+                              SizedBox(
+                                height: headerHeight,
+                                child: _SettingsHeader(
+                                  onClose: () => _closeModal(context),
+                                ),
                               ),
-                              const SizedBox(height: headerGap),
-                              Expanded(
-                                child: ListView.separated(
-                                  padding: EdgeInsets.zero,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: entries.length,
-                                  itemBuilder: (context, index) {
-                                    final entry = entries[index];
-                                    return _SettingsOptionRow(
+                              const SizedBox(height: rowGap),
+                              // ── Toggle rows ──────────────────────────────
+                              ...List.generate(toggleEntries.length, (i) {
+                                final entry = toggleEntries[i];
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (i > 0) ...[
+                                      _SettingsSeparator(
+                                        tint: entry.tint,
+                                      ),
+                                    ],
+                                    _SettingsOptionRow(
                                       height: rowHeight,
                                       icon: entry.icon,
                                       tint: entry.tint,
@@ -361,15 +348,53 @@ class SettingsDialog extends StatelessWidget {
                                       subtitle: entry.subtitle,
                                       trailing: entry.trailing,
                                       onTap: entry.onTap,
-                                    );
-                                  },
-                                  separatorBuilder: (context, index) {
-                                    return _SettingsSeparator(
-                                      tint: index == entries.length - 2
-                                          ? quitTint
-                                          : entries[index + 1].tint,
-                                    );
-                                  },
+                                    ),
+                                  ],
+                                );
+                              }),
+                              // ── Divider + action strip ───────────────────
+                              const SizedBox(height: rowGap),
+                              _SettingsSeparator(tint: theme.textMuted),
+                              const SizedBox(height: rowGap),
+                              SizedBox(
+                                height: actionStripHeight,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _SettingsActionButton(
+                                        icon: Icons.ios_share_rounded,
+                                        label: 'Share',
+                                        tint: shareTint,
+                                        onTap: () => _handleShare(context),
+                                      ),
+                                    ),
+                                    _SettingsActionDivider(
+                                      tint: theme.textMuted,
+                                    ),
+                                    Expanded(
+                                      child: _SettingsActionButton(
+                                        icon: Icons.forum_rounded,
+                                        label: 'Feedback',
+                                        tint: feedbackTint,
+                                        onTap: () =>
+                                            _handleFeedback(context),
+                                      ),
+                                    ),
+                                    _SettingsActionDivider(
+                                      tint: theme.textMuted,
+                                    ),
+                                    Expanded(
+                                      child: _SettingsActionButton(
+                                        icon:
+                                            Icons.power_settings_new_rounded,
+                                        label: 'Quit Game',
+                                        tint: quitTint,
+                                        emphasized: true,
+                                        onTap: () =>
+                                            _handleQuitGame(context),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -387,6 +412,395 @@ class SettingsDialog extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Horizontal action button (icon on top, label beneath)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SettingsActionButton extends StatelessWidget {
+  const _SettingsActionButton({
+    required this.icon,
+    required this.label,
+    required this.tint,
+    required this.onTap,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color tint;
+  final VoidCallback onTap;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return GamePressable(
+      onTap: onTap,
+      pressedScale: 0.93,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: emphasized ? 0.14 : 0.1),
+                  tint.withValues(alpha: emphasized ? 0.22 : 0.14),
+                  Colors.black.withValues(alpha: 0.06),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(
+                  alpha: emphasized ? 0.16 : 0.09,
+                ),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: tint.withValues(
+                    alpha: emphasized ? 0.18 : 0.10,
+                  ),
+                  blurRadius: 14,
+                  spreadRadius: -8,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 10,
+                  spreadRadius: -10,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Subtle inner highlight
+                Positioned(
+                  left: 6,
+                  right: 6,
+                  top: 4,
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.18),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Icon(
+                    icon,
+                    color: tint.withValues(
+                      alpha: emphasized ? 1.0 : 0.92,
+                    ),
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Thin vertical divider between action buttons
+class _SettingsActionDivider extends StatelessWidget {
+  const _SettingsActionDivider({required this.tint});
+
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 36,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            tint.withValues(alpha: 0.14),
+            Colors.transparent,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// In-app Feedback bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FeedbackSheet extends StatefulWidget {
+  const _FeedbackSheet({required this.onSubmit});
+
+  final ValueChanged<String> onSubmit;
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  final TextEditingController _controller = TextEditingController();
+  bool _submitted = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _submitted = true);
+    Future.delayed(const Duration(milliseconds: 480), () {
+      widget.onSubmit(text);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final feedbackTint = Color.lerp(
+      theme.primaryAccent,
+      theme.secondaryAccent,
+      0.3,
+    )!;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 20 + bottomInset),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(theme.surfaceStrong, Colors.white, 0.05)!,
+            Color.lerp(theme.surface, theme.backgroundDark, 0.2)!,
+            Color.lerp(theme.backgroundDeep, Colors.black, 0.04)!,
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 28,
+            spreadRadius: -12,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.12),
+                      feedbackTint.withValues(alpha: 0.2),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Icon(
+                  Icons.forum_rounded,
+                  color: feedbackTint,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Send Feedback',
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.14,
+                      ),
+                    ),
+                    Text(
+                      'We read every message',
+                      style: TextStyle(
+                        color: theme.textSecondary.withValues(alpha: 0.72),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GamePressable(
+                onTap: () => Navigator.of(context).pop(),
+                pressedScale: 0.94,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(9),
+                    color: Colors.white.withValues(alpha: 0.07),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.07),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: theme.textSecondary,
+                    size: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Text field
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withValues(alpha: 0.05),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: TextField(
+              controller: _controller,
+              maxLines: 5,
+              minLines: 4,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.5,
+              ),
+              decoration: InputDecoration(
+                hintText:
+                    'Share your thoughts, bug reports, or ideas…',
+                hintStyle: TextStyle(
+                  color: theme.textSecondary.withValues(alpha: 0.46),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                ),
+                contentPadding: const EdgeInsets.all(14),
+                border: InputBorder.none,
+              ),
+              cursorColor: feedbackTint,
+              textInputAction: TextInputAction.newline,
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Submit button
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 260),
+            opacity: _submitted ? 0.6 : 1.0,
+            child: GamePressable(
+              onTap: _submitted ? null : _submit,
+              pressedScale: 0.97,
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  gradient: AppTheme.accentGradient(
+                    feedbackTint,
+                    intensity: 0.88,
+                    theme: AppTheme.of(context),
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
+                  ),
+                  boxShadow: AppTheme.premiumShadows(
+                    feedbackTint,
+                    emphasized: true,
+                    theme: AppTheme.of(context),
+                  ),
+                ),
+                child: Center(
+                  child: _submitted
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Sending…',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.send_rounded,
+                              color: Colors.white.withValues(alpha: 0.92),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Send Feedback',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unchanged private widgets below
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SettingsHeader extends StatelessWidget {
   const _SettingsHeader({required this.onClose});
@@ -590,7 +1004,10 @@ class _SettingsOptionRow extends StatelessWidget {
               const SizedBox(width: 10),
               SizedBox(
                 width: 56,
-                child: Align(alignment: Alignment.centerRight, child: trailing),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: trailing,
+                ),
               ),
             ],
           ),
@@ -739,7 +1156,8 @@ class _PremiumSettingsToggle extends StatelessWidget {
               AnimatedAlign(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeInOut,
-                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                alignment:
+                    value ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
                   width: 19,
                   height: 19,
@@ -771,76 +1189,6 @@ class _PremiumSettingsToggle extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SettingsActionControl extends StatelessWidget {
-  const _SettingsActionControl({
-    required this.icon,
-    required this.tint,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final Color tint;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.1),
-            tint.withValues(alpha: emphasized ? 0.16 : 0.1),
-            Colors.black.withValues(alpha: 0.06),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: emphasized ? 0.1 : 0.07),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tint.withValues(alpha: emphasized ? 0.11 : 0.07),
-            blurRadius: 10,
-            spreadRadius: -10,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 10,
-            spreadRadius: -10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 5,
-            right: 5,
-            top: 3,
-            child: Container(
-              height: 5,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.14),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Center(child: Icon(icon, color: tint, size: 15)),
-        ],
       ),
     );
   }

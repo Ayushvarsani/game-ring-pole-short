@@ -399,8 +399,8 @@ class GameButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(width: 12),
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
         ],
         Flexible(
           child: Column(
@@ -414,13 +414,13 @@ class GameButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
+                  letterSpacing: 0.5,
                 ),
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   subtitle!,
                   textAlign: TextAlign.center,
@@ -430,9 +430,9 @@ class GameButton extends StatelessWidget {
                     color: Colors.white.withValues(
                       alpha: enabled ? 0.82 : 0.65,
                     ),
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],
@@ -538,7 +538,7 @@ class GamePrimaryButton extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.icon,
-    this.padding = const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
   });
 
   final String label;
@@ -557,8 +557,8 @@ class GamePrimaryButton extends StatelessWidget {
       onTap: onTap,
       accentColor: theme.primaryAccent,
       padding: padding,
-      minHeight: 72,
-      radius: 26,
+      minHeight: 52,
+      radius: 22,
       layout: GameButtonLayout.horizontal,
       emphasized: true,
     );
@@ -683,7 +683,7 @@ class GameDialogFrame extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.tint,
-    this.padding = const EdgeInsets.fromLTRB(24, 22, 24, 24),
+    this.padding = const EdgeInsets.fromLTRB(20, 18, 20, 20),
   });
 
   final String title;
@@ -717,31 +717,31 @@ class GameDialogFrame extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: theme.textPrimary,
-                        fontSize: 26,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         subtitle!,
                         style: TextStyle(
                           color: theme.textSecondary,
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          height: 1.4,
-                          letterSpacing: 0.16,
+                          height: 1.35,
+                          letterSpacing: 0.14,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 16), trailing!],
+              if (trailing != null) ...[const SizedBox(width: 14), trailing!],
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           child,
         ],
       ),

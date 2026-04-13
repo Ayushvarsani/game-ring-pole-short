@@ -71,6 +71,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           setState(() {
             _newlySolvedBottles = newSolved;
           });
+          context.read<SettingsCubit>().playBottleSolvedSound();
+          context.read<SettingsCubit>().triggerLightHaptic();
           _celebrationController.forward(from: 0.0);
         }
       }
@@ -172,6 +174,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     setState(() {});
     _pourAnimation.controller.forward(from: 0.0);
+    context.read<SettingsCubit>().playPourSound();
     context.read<SettingsCubit>().triggerLightHaptic();
   }
 
@@ -187,9 +190,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (state.status == GameStatus.won) {
           final reward = CoinService.rewardForLevel(state.level);
           context.read<ShopCubit>().addCoinsFromLevelReward(state.level);
+          context.read<SettingsCubit>().playWinSound();
+          context.read<SettingsCubit>().triggerHeavyHaptic();
           _showWinDialog(context, reward);
         }
         if (state.status == GameStatus.gameOver) {
+          context.read<SettingsCubit>().playFailSound();
+          context.read<SettingsCubit>().triggerHeavyHaptic();
           _showGameOverDialog(context, state);
         }
         if (state.moveCount == 0) {
@@ -720,22 +727,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _showWinDialog(BuildContext context, int coinsEarned) {
     final theme = AppTheme.of(context);
-    context.read<SettingsCubit>().playClickSound();
-    context.read<SettingsCubit>().triggerHeavyHaptic();
     _showOverlayDialog(
       context: context,
       barrierLabel: 'Level Complete',
       child: GameDialogFrame(
         title: 'Level Complete',
-        subtitle:
-            'Everything is sorted. Your reward is ready and the next puzzle is unlocked.',
+        subtitle: 'Everything sorted — collect your reward.',
         tint: theme.goldAccent,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ── Compact trophy icon ──────────────────────────────────
             Container(
-              width: 84,
-              height: 84,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [theme.goldAccent, theme.warmAccent],
@@ -745,55 +751,95 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: theme.goldAccent.withValues(alpha: 0.28),
-                    blurRadius: 28,
-                    spreadRadius: -6,
-                    offset: const Offset(0, 14),
+                    color: theme.goldAccent.withValues(alpha: 0.32),
+                    blurRadius: 14,
+                    spreadRadius: -3,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: const Icon(
                 Icons.emoji_events_rounded,
                 color: Colors.white,
-                size: 42,
+                size: 24,
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDialogStat(
-                    icon: Icons.monetization_on_rounded,
-                    label: 'Coins Earned',
-                    value: '+$coinsEarned',
-                    tint: theme.goldAccent,
+            const SizedBox(height: 10),
+            // ── Single row: Coins Earned | Next Stage | → button ─────
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Coins Earned chip
+                  Expanded(
+                    child: _buildInfoChip(
+                      icon: Icons.monetization_on_rounded,
+                      label: 'COINS',
+                      value: '+$coinsEarned',
+                      tint: theme.goldAccent,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildDialogStat(
-                    icon: Icons.auto_awesome_rounded,
-                    label: 'Next Stage',
-                    value: 'Level ${context.read<GameCubit>().state.level + 1}',
-                    tint: theme.secondaryAccent,
+                  const SizedBox(width: 5),
+                  // Next Stage chip
+                  Expanded(
+                    child: _buildInfoChip(
+                      icon: Icons.auto_awesome_rounded,
+                      label: 'NEXT STAGE',
+                      value:
+                          'Lv ${context.read<GameCubit>().state.level + 1}',
+                      tint: theme.secondaryAccent,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: GamePrimaryButton(
-                label: 'Next Level',
-                subtitle: 'Keep the streak going',
-                icon: Icons.arrow_forward_rounded,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  context.read<GameCubit>().nextLevel();
-                },
+                  const SizedBox(width: 5),
+                  // Next Level icon button — fills the same height as the chips
+                  _buildNextLevelButton(context, theme),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact icon button — stretches to match chip height via IntrinsicHeight.
+  Widget _buildNextLevelButton(BuildContext context, AppThemeConfig theme) {
+    return GamePressable(
+      onTap: () {
+        Navigator.of(context).pop();
+        context.read<GameCubit>().nextLevel();
+      },
+      child: Container(
+        width: 44,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.primaryAccent,
+              Color.lerp(theme.primaryAccent, theme.secondaryAccent, 0.45)!,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.18),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.primaryAccent.withValues(alpha: 0.28),
+              blurRadius: 10,
+              spreadRadius: -2,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        // No fixed height — IntrinsicHeight on the parent Row drives the height
+        child: const Center(
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
       ),
     );
@@ -808,96 +854,171 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       barrierLabel: 'Game Over',
       child: GameDialogFrame(
         title: 'Out Of Moves',
-        subtitle:
-            'This board needs one more pass. Restart the level or head back to the home screen.',
+        subtitle: 'One more pass needed — restart or go home.',
         tint: theme.warmAccent,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ── Compact hourglass icon ───────────────────────────────
             Container(
-              width: 80,
-              height: 80,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: theme.warmAccent.withValues(alpha: 0.18),
+                color: theme.warmAccent.withValues(alpha: 0.14),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: theme.warmAccent.withValues(alpha: 0.3),
+                  color: theme.warmAccent.withValues(alpha: 0.28),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.warmAccent.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    spreadRadius: -3,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(
                 Icons.hourglass_bottom_rounded,
                 color: theme.warmAccent,
-                size: 38,
+                size: 24,
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDialogStat(
-                    icon: Icons.swap_vert_rounded,
-                    label: 'Moves Used',
-                    value: '${state.moveCount}/${state.moveLimit}',
-                    tint: theme.warmAccent,
+            const SizedBox(height: 10),
+            // ── Stats row ────────────────────────────────────────────
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildInfoChip(
+                      icon: Icons.swap_vert_rounded,
+                      label: 'MOVES USED',
+                      value: '${state.moveCount}/${state.moveLimit}',
+                      tint: theme.warmAccent,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildDialogStat(
-                    icon: Icons.lightbulb_outline_rounded,
-                    label: 'Hints Left',
-                    value: '${state.hintsRemaining}',
-                    tint: theme.goldAccent,
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: _buildInfoChip(
+                      icon: Icons.lightbulb_outline_rounded,
+                      label: 'HINTS LEFT',
+                      value: '${state.hintsRemaining}',
+                      tint: theme.goldAccent,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: GamePressable(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: AppTheme.surfaceDecoration(
-                        tint: theme.primaryAccent,
-                        radius: 24,
-                        muted: true,
-                        theme: theme,
-                      ),
-                      child: Text(
-                        'Home',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: theme.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+            const SizedBox(height: 10),
+            // ── Action buttons ───────────────────────────────────────
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Home — subtle secondary
+                  Expanded(
+                    child: GamePressable(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        decoration: BoxDecoration(
+                          color: theme.primaryAccent.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: theme.primaryAccent.withValues(alpha: 0.22),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.home_rounded,
+                              size: 16,
+                              color: theme.textPrimary.withValues(alpha: 0.80),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Home',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: theme.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GamePrimaryButton(
-                    label: 'Restart',
-                    subtitle: 'Try the board again',
-                    icon: Icons.refresh_rounded,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      context.read<GameCubit>().restartLevel();
-                    },
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 18,
+                  const SizedBox(width: 5),
+                  // Restart — primary, but compact
+                  Expanded(
+                    child: GamePressable(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        context.read<GameCubit>().restartLevel();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.warmAccent,
+                              Color.lerp(
+                                theme.warmAccent,
+                                theme.primaryAccent,
+                                0.35,
+                              )!,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.warmAccent.withValues(alpha: 0.24),
+                              blurRadius: 10,
+                              spreadRadius: -2,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.refresh_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Restart',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -905,7 +1026,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildDialogStat({
+
+
+
+  /// Pill-style info chip — minimal background, no heavy shadow.
+  Widget _buildInfoChip({
     required IconData icon,
     required String label,
     required String value,
@@ -913,38 +1038,48 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }) {
     final theme = AppTheme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: AppTheme.surfaceDecoration(
-        tint: tint,
-        radius: 22,
-        muted: true,
-        theme: theme,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: tint.withValues(alpha: 0.22),
+          width: 1.0,
+        ),
       ),
+      // Column fills the full IntrinsicHeight and centers content vertically
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Text(
-            label.toUpperCase(),
+            label,
             style: TextStyle(
               color: theme.textMuted,
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
+              letterSpacing: 0.7,
+              height: 1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, color: tint, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
+              Icon(icon, color: tint, size: 12),
+              const SizedBox(width: 4),
+              Flexible(
                 child: Text(
                   value,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: theme.textPrimary,
-                    fontSize: 16,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.1,
+                    height: 1.1,
                   ),
                 ),
               ),
