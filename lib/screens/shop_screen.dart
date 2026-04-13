@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -668,8 +669,6 @@ class ShopReferenceCard extends StatelessWidget {
       status == ShopItemStatus.active ||
       (status == ShopItemStatus.locked && affordable);
 
-  bool get _showsBadge => status != ShopItemStatus.active;
-
   Color _cardTint(AppThemeConfig theme) {
     switch (status) {
       case ShopItemStatus.equipped:
@@ -699,7 +698,9 @@ class ShopReferenceCard extends StatelessWidget {
       case ShopItemStatus.active:
         return '';
       case ShopItemStatus.locked:
-        return 'Locked';
+        // Badge label intentionally empty — lock state is shown via
+        // the blur + icon overlay on the preview instead.
+        return '';
     }
   }
 
@@ -717,37 +718,90 @@ class ShopReferenceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ShopStatusBadgeSlot(
-            visible: _showsBadge,
+            // Show badge only for equipped; locked items use the blur
+            // + lock-icon overlay on the preview, not a text badge.
+            visible: status == ShopItemStatus.equipped,
             label: _badgeLabel(),
             tint: _badgeTint(theme),
             compact: compact,
           ),
           SizedBox(height: compact ? 10 : 12),
-          Container(
-            height: previewStageHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(compact ? 18 : 20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.06),
-                  Colors.black.withValues(alpha: 0.18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(compact ? 18 : 20),
+            child: Container(
+              height: previewStageHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(compact ? 18 : 20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.06),
+                    Colors.black.withValues(alpha: 0.18),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 16,
+                    spreadRadius: -10,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.14),
-                  blurRadius: 16,
-                  spreadRadius: -10,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(compact ? 10 : 12),
-              child: Center(child: preview),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // ── Preview content (always present) ──────────────────────
+                  Padding(
+                    padding: EdgeInsets.all(compact ? 10 : 12),
+                    child: Center(child: preview),
+                  ),
+                  // ── Blur + lock icon overlay for locked items ──────────────
+                  if (status == ShopItemStatus.locked) ...[
+                    // Frosted-glass blur over the preview
+                    Positioned.fill(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 4.0, sigmaY: 4.0),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Large centered lock icon — primary locked-state indicator
+                    Center(
+                      child: Container(
+                        width: compact ? 44 : 52,
+                        height: compact ? 44 : 52,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.42),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 16,
+                              spreadRadius: -4,
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.lock_rounded,
+                          color: Colors.white.withValues(alpha: 0.82),
+                          size: compact ? 22 : 26,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           SizedBox(height: compact ? 10 : 12),
