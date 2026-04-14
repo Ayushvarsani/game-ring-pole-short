@@ -74,7 +74,7 @@ class GameState extends Equatable {
     this.moveLimit = 0,
     this.undoCount = 0,
     required this.levelStartTime,
-    this.hintsRemaining = 3,
+    this.hintsRemaining = 5,
     this.hintSourceIndex = -1,
     this.hintDestIndex = -1,
     this.animSourceIndex = -1,

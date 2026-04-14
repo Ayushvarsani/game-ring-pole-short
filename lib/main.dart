@@ -6,11 +6,14 @@ import 'bloc/settings_cubit.dart';
 import 'bloc/shop_cubit.dart';
 import 'bloc/shop_state.dart';
 import 'screens/splash_screen.dart';
+import 'services/ad_service.dart';
 import 'theme/app_theme.dart';
 // import 'services/analytics_service.dart'; // Uncomment when Firebase is configured
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await AdService.instance.init();
 
   // Lock to portrait mode for optimal gameplay
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);

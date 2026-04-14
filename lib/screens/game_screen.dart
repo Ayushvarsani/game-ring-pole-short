@@ -11,9 +11,11 @@ import '../bloc/shop_cubit.dart';
 import '../models/bottle_type.dart';
 import '../models/fill_type.dart';
 import '../painters/pouring_stream_painter.dart';
+import '../services/ad_service.dart';
 import '../services/coin_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_theme_config.dart';
+import '../widgets/banner_ad_widget.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 
@@ -217,35 +219,42 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 SafeArea(
-                  child: Padding(
-                    // Tight outer insets keep the gameplay chrome from stealing
-                    // height from the center board on shorter devices.
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final metrics = _GameScreenViewportMetrics.resolve(
-                          constraints,
-                        );
-
-                        // The old screen felt stretched because the header and
-                        // footer both used generous padding and tall cards,
-                        // while the board itself sat inside a scroll view. This
-                        // fixed column gives the chrome compact, content-driven
-                        // height and lets the Expanded center own the leftover
-                        // space like a proper puzzle board.
-                        return Column(
-                          children: [
-                            _buildHeader(context, state, metrics),
-                            SizedBox(height: metrics.sectionSpacing),
-                            Expanded(
-                              child: _buildBottleGrid(context, state, metrics),
-                            ),
-                            SizedBox(height: metrics.sectionSpacing),
-                            _buildBottomBar(context, state, metrics),
-                          ],
-                        );
-                      },
-                    ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          // Tight outer insets keep the gameplay chrome from stealing
+                          // height from the center board on shorter devices.
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final metrics = _GameScreenViewportMetrics.resolve(
+                                constraints,
+                              );
+      
+                              // The old screen felt stretched because the header and
+                              // footer both used generous padding and tall cards,
+                              // while the board itself sat inside a scroll view. This
+                              // fixed column gives the chrome compact, content-driven
+                              // height and lets the Expanded center own the leftover
+                              // space like a proper puzzle board.
+                              return Column(
+                                children: [
+                                  _buildHeader(context, state, metrics),
+                                  SizedBox(height: metrics.sectionSpacing),
+                                  Expanded(
+                                    child: _buildBottleGrid(context, state, metrics),
+                                  ),
+                                  SizedBox(height: metrics.sectionSpacing),
+                                  _buildBottomBar(context, state, metrics),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const BannerAdWidget(),
+                    ],
                   ),
                 ),
               ],
@@ -620,7 +629,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ? () {
                     context.read<SettingsCubit>().playClickSound();
                     context.read<SettingsCubit>().triggerLightHaptic();
-                    context.read<GameCubit>().undo();
+                    AdService.instance.handleUndoClick(
+                      onUndoGranted: () {
+                        context.read<GameCubit>().undo();
+                      },
+                      onAdFailed: () {},
+                    );
                   }
                 : null,
           ),
@@ -633,11 +647,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             label: 'Hint',
             accentColor: theme.goldAccent,
             onTap:
-                state.status == GameStatus.playing && state.hintsRemaining > 0
+                state.status == GameStatus.playing
                 ? () {
                     context.read<SettingsCubit>().playClickSound();
                     context.read<SettingsCubit>().triggerLightHaptic();
-                    context.read<GameCubit>().getHint();
+                    AdService.instance.handleHintClick(
+                      onHintGranted: () {
+                        context.read<GameCubit>().getHint();
+                      },
+                      onAdFailed: () {},
+                    );
                   }
                 : null,
           ),
@@ -733,7 +752,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         },
         onNext: () {
           Navigator.of(context).pop();
-          context.read<GameCubit>().nextLevel();
+          AdService.instance.handleLevelCompleted(
+            onContinue: () {
+              context.read<GameCubit>().nextLevel();
+            },
+          );
         },
       ),
     );
@@ -1204,12 +1227,21 @@ class _WinDialogState extends State<_WinDialog>
                       tint: theme.goldAccent,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.flag_rounded,
+                      label: 'LEVEL',
+                      value: '${widget.nextLevel - 1}',
+                      tint: theme.primaryAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _StatCard(
                       icon: Icons.auto_awesome_rounded,
-                      label: 'NEXT STAGE',
-                      value: 'Lv ${widget.nextLevel}',
+                      label: 'NEXT LEVEL',
+                      value: '${widget.nextLevel}',
                       tint: theme.secondaryAccent,
                     ),
                   ),
@@ -1512,7 +1544,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -1532,6 +1564,8 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: theme.textMuted,
               fontSize: 10,

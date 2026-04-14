@@ -4,6 +4,7 @@ import '../models/bottle_model.dart';
 import '../services/level_generator.dart';
 import '../services/level_progress_service.dart';
 import '../services/analytics_service.dart';
+import '../services/ad_service.dart';
 import 'game_state.dart';
 
 /// Cubit that manages all game logic for the Water Sort puzzle.
@@ -48,6 +49,7 @@ class GameCubit extends Cubit<GameState> {
         level: safeLevel,
         moveLimit: moveLimit,
         levelStartTime: DateTime.now(),
+        hintsRemaining: AdService.instance.freeHintsRemaining,
       ),
     );
 
@@ -248,7 +250,9 @@ class GameCubit extends Cubit<GameState> {
   /// Show a hint by highlighting a valid pour move.
   void getHint() {
     if (state.status != GameStatus.playing) return;
-    if (state.hintsRemaining <= 0) return;
+    
+    // hint check logic is deferred to ad_service's requiresAdForHint.
+    // If it's exhausted, handleHintClick will trigger AdMob automatically.
 
     final bottles = state.bottles;
 
@@ -285,7 +289,7 @@ class GameCubit extends Cubit<GameState> {
           state.copyWith(
             hintSourceIndex: src,
             hintDestIndex: dest,
-            hintsRemaining: state.hintsRemaining - 1,
+            hintsRemaining: AdService.instance.freeHintsRemaining,
             selectedBottleIndex: -1,
           ),
         );
