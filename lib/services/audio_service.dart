@@ -21,7 +21,7 @@ class AudioService {
   static const _bgmVolume = 0.55;
 
   late AudioPlayer _bgm;
-  bool _bgmReady = false;   // true after the first successful play()
+  bool _bgmReady = false; // true after the first successful play()
   bool _musicEnabled = true;
 
   // ── SFX pool ──────────────────────────────────────────────────────────────

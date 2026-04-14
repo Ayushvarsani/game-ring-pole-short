@@ -286,16 +286,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             children: [
               Expanded(
                 child: _CompactHeaderChip(
-                  icon: Icons.grid_view_rounded,
-                  label: 'Board',
-                  value: '${state.bottles.length}',
-                  tint: theme.secondaryAccent,
-                  compact: metrics.isCompact,
-                ),
-              ),
-              SizedBox(width: metrics.innerSpacing),
-              Expanded(
-                child: _CompactHeaderChip(
                   icon: Icons.auto_awesome_rounded,
                   label: 'Level',
                   value: '${state.level}',
@@ -698,8 +688,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       context: context,
       barrierLabel: barrierLabel,
       barrierDismissible: barrierDismissible,
-      barrierColor: Colors.black.withValues(alpha: 0.62),
-      transitionDuration: const Duration(milliseconds: 240),
+      barrierColor: Colors.black.withValues(alpha: 0.70),
+      transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (context, animation, secondaryAnimation) {
         return Center(
           child: Padding(
@@ -711,13 +701,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       transitionBuilder: (context, animation, _, dialogChild) {
         final curved = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
+          curve: Curves.easeOutBack,
           reverseCurve: Curves.easeInCubic,
         );
         return FadeTransition(
-          opacity: curved,
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeInCubic,
+          ),
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.88, end: 1.0).animate(curved),
             child: dialogChild,
           ),
         );
@@ -726,359 +720,43 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _showWinDialog(BuildContext context, int coinsEarned) {
-    final theme = AppTheme.of(context);
+    final nextLevel = context.read<GameCubit>().state.level + 1;
     _showOverlayDialog(
       context: context,
       barrierLabel: 'Level Complete',
-      child: GlassCard(
-        tint: theme.goldAccent,
-        radius: AppTheme.radiusLarge,
-        highlighted: true,
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
-        decoration: AppTheme.dialogDecoration(
-          tint: theme.goldAccent,
-          theme: theme,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Trophy icon
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [theme.goldAccent, theme.warmAccent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.goldAccent.withValues(alpha: 0.36),
-                    blurRadius: 16,
-                    spreadRadius: -3,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.emoji_events_rounded,
-                color: Colors.white,
-                size: 26,
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Title
-            Text(
-              'Level Complete',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 14),
-            // Stats chips
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildInfoChip(
-                      icon: Icons.monetization_on_rounded,
-                      label: 'COINS',
-                      value: '+$coinsEarned',
-                      tint: theme.goldAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: _buildInfoChip(
-                      icon: Icons.auto_awesome_rounded,
-                      label: 'NEXT STAGE',
-                      value:
-                          'Lv ${context.read<GameCubit>().state.level + 1}',
-                      tint: theme.secondaryAccent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Icon-only buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildIconButton(
-                  context: context,
-                  icon: Icons.home_rounded,
-                  tint: theme.primaryAccent,
-                  primary: false,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
-                  },
-                ),
-                const SizedBox(width: 12),
-                _buildIconButton(
-                  context: context,
-                  icon: Icons.arrow_forward_rounded,
-                  tint: theme.goldAccent,
-                  primary: true,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    context.read<GameCubit>().nextLevel();
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  /// Shared icon-only square button (56x48) used in both dialog action rows.
-  Widget _buildIconButton({
-    required BuildContext context,
-    required IconData icon,
-    required Color tint,
-    required bool primary,
-    required VoidCallback onTap,
-  }) {
-    final theme = AppTheme.of(context);
-    return GamePressable(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: primary
-              ? LinearGradient(
-                  colors: [
-                    tint,
-                    Color.lerp(tint, theme.primaryAccent, 0.35)!,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: primary ? null : tint.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: primary
-                ? Colors.white.withValues(alpha: 0.18)
-                : tint.withValues(alpha: 0.28),
-            width: 1.0,
-          ),
-          boxShadow: primary
-              ? [
-                  BoxShadow(
-                    color: tint.withValues(alpha: 0.28),
-                    blurRadius: 10,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: primary
-                ? Colors.white
-                : theme.textPrimary.withValues(alpha: 0.80),
-            size: 22,
-          ),
-        ),
+      child: _WinDialog(
+        coinsEarned: coinsEarned,
+        nextLevel: nextLevel,
+        onHome: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        },
+        onNext: () {
+          Navigator.of(context).pop();
+          context.read<GameCubit>().nextLevel();
+        },
       ),
     );
   }
 
   void _showGameOverDialog(BuildContext context, GameState state) {
-    final theme = AppTheme.of(context);
     context.read<SettingsCubit>().playClickSound();
     context.read<SettingsCubit>().triggerHeavyHaptic();
     _showOverlayDialog(
       context: context,
       barrierLabel: 'Game Over',
-      child: GlassCard(
-        tint: theme.warmAccent,
-        radius: AppTheme.radiusLarge,
-        highlighted: true,
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
-        decoration: AppTheme.dialogDecoration(
-          tint: theme.warmAccent,
-          theme: theme,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Hourglass icon
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.warmAccent,
-                    Color.lerp(theme.warmAccent, theme.primaryAccent, 0.3)!,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.warmAccent.withValues(alpha: 0.36),
-                    blurRadius: 16,
-                    spreadRadius: -3,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.hourglass_bottom_rounded,
-                color: Colors.white,
-                size: 26,
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Title
-            Text(
-              'Out Of Moves',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 14),
-            // Stats chips
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildInfoChip(
-                      icon: Icons.swap_vert_rounded,
-                      label: 'MOVES USED',
-                      value: '${state.moveCount}/${state.moveLimit}',
-                      tint: theme.warmAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: _buildInfoChip(
-                      icon: Icons.lightbulb_outline_rounded,
-                      label: 'HINTS LEFT',
-                      value: '${state.hintsRemaining}',
-                      tint: theme.goldAccent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Icon-only buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildIconButton(
-                  context: context,
-                  icon: Icons.home_rounded,
-                  tint: theme.primaryAccent,
-                  primary: false,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
-                  },
-                ),
-                const SizedBox(width: 12),
-                _buildIconButton(
-                  context: context,
-                  icon: Icons.refresh_rounded,
-                  tint: theme.warmAccent,
-                  primary: true,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    context.read<GameCubit>().restartLevel();
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  /// Pill-style info chip — minimal background, no heavy shadow.
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color tint,
-  }) {
-    final theme = AppTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: tint.withValues(alpha: 0.22),
-          width: 1.0,
-        ),
-      ),
-      // Column fills the full IntrinsicHeight and centers content vertically
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: theme.textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              height: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(icon, color: tint, size: 12),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: theme.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.1,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+      child: _GameOverDialog(
+        moveCount: state.moveCount,
+        moveLimit: state.moveLimit,
+        hintsRemaining: state.hintsRemaining,
+        onHome: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        },
+        onRestart: () {
+          Navigator.of(context).pop();
+          context.read<GameCubit>().restartLevel();
+        },
       ),
     );
   }
@@ -1103,7 +781,6 @@ class _CompactHeaderChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final iconSize = compact ? 14.0 : 15.0;
-    final iconSpacing = compact ? 4.0 : 5.0;
 
     return GlassCard(
       tint: tint,
@@ -1112,49 +789,44 @@ class _CompactHeaderChip extends StatelessWidget {
       muted: true,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 10,
-        vertical: compact ? 8 : 9,
+        vertical: compact ? 7 : 8,
       ),
       child: SizedBox(
         width: double.infinity,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: iconSize,
-                color: theme.textPrimary.withValues(alpha: 0.82),
-              ),
-              SizedBox(width: iconSpacing),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '$label ',
-                      style: TextStyle(
-                        color: theme.textMuted,
-                        fontSize: compact ? 9 : 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.16,
-                      ),
-                    ),
-                    TextSpan(
-                      text: value,
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: compact ? 11 : 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.1,
-                      ),
-                    ),
-                  ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: iconSize, color: tint.withValues(alpha: 0.88)),
+                SizedBox(width: compact ? 4.0 : 5.0),
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: theme.textMuted,
+                    fontSize: compact ? 10 : 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
                 ),
-                textAlign: TextAlign.center,
+              ],
+            ),
+            SizedBox(height: compact ? 2 : 3),
+            Text(
+              value,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: compact ? 15 : 17,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                height: 1.0,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1413,5 +1085,551 @@ class _BottleGridMetrics {
     if (count <= 12) return 5;
     if (count <= 15) return 4;
     return 5;
+  }
+}
+
+class _WinDialog extends StatefulWidget {
+  const _WinDialog({
+    required this.coinsEarned,
+    required this.nextLevel,
+    required this.onHome,
+    required this.onNext,
+  });
+
+  final int coinsEarned;
+  final int nextLevel;
+  final VoidCallback onHome;
+  final VoidCallback onNext;
+
+  @override
+  State<_WinDialog> createState() => _WinDialogState();
+}
+
+class _WinDialogState extends State<_WinDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
+    return GlassCard(
+      tint: theme.goldAccent,
+      radius: AppTheme.radiusLarge + 4,
+      highlighted: true,
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      decoration: AppTheme.dialogDecoration(
+        tint: theme.goldAccent,
+        theme: theme,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Hero Icon with pulsing ambient glow
+          _HeroIcon(
+            icon: Icons.emoji_events_rounded,
+            tint: theme.goldAccent,
+            secondaryTint: theme.warmAccent,
+            animation: _anim,
+          ),
+          const SizedBox(height: 24),
+
+          // Gradient Title
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _anim,
+              curve: const Interval(0.2, 0.8),
+            ),
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [Colors.white, theme.goldAccent.withValues(alpha: 0.8)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ).createShader(bounds),
+              child: Text(
+                'LEVEL COMPLETE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Stats Row
+          SlideTransition(
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.2),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: _anim,
+                    curve: const Interval(0.4, 0.9, curve: Curves.easeOutBack),
+                  ),
+                ),
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _anim,
+                curve: const Interval(0.4, 0.9),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.monetization_on_rounded,
+                      label: 'COINS',
+                      value: '+${widget.coinsEarned}',
+                      tint: theme.goldAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.auto_awesome_rounded,
+                      label: 'NEXT STAGE',
+                      value: 'Lv ${widget.nextLevel}',
+                      tint: theme.secondaryAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Actions
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _anim,
+              curve: const Interval(0.6, 1.0),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _WideButton(
+                  label: 'CONTINUE',
+                  icon: Icons.arrow_forward_rounded,
+                  tint: theme.goldAccent,
+                  primary: true,
+                  onTap: widget.onNext,
+                ),
+                const SizedBox(height: 12),
+                _WideButton(
+                  label: 'MAIN MENU',
+                  icon: Icons.home_rounded,
+                  tint: theme.primaryAccent,
+                  primary: false,
+                  onTap: widget.onHome,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameOverDialog extends StatefulWidget {
+  const _GameOverDialog({
+    required this.moveCount,
+    required this.moveLimit,
+    required this.hintsRemaining,
+    required this.onHome,
+    required this.onRestart,
+  });
+
+  final int moveCount;
+  final int moveLimit;
+  final int hintsRemaining;
+  final VoidCallback onHome;
+  final VoidCallback onRestart;
+
+  @override
+  State<_GameOverDialog> createState() => _GameOverDialogState();
+}
+
+class _GameOverDialogState extends State<_GameOverDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
+    return GlassCard(
+      tint: theme.warmAccent,
+      radius: AppTheme.radiusLarge + 4,
+      highlighted: true,
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      decoration: AppTheme.dialogDecoration(
+        tint: theme.warmAccent,
+        theme: theme,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _HeroIcon(
+            icon: Icons.hourglass_bottom_rounded,
+            tint: theme.warmAccent,
+            secondaryTint: theme.dangerAccent,
+            animation: _anim,
+          ),
+          const SizedBox(height: 24),
+
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _anim,
+              curve: const Interval(0.2, 0.8),
+            ),
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [Colors.white, theme.warmAccent.withValues(alpha: 0.8)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ).createShader(bounds),
+              child: Text(
+                'OUT OF MOVES',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          SlideTransition(
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.2),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: _anim,
+                    curve: const Interval(0.4, 0.9, curve: Curves.easeOutBack),
+                  ),
+                ),
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _anim,
+                curve: const Interval(0.4, 0.9),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.swap_vert_rounded,
+                      label: 'MOVES',
+                      value: '${widget.moveCount}/${widget.moveLimit}',
+                      tint: theme.warmAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.lightbulb_outline_rounded,
+                      label: 'HINTS',
+                      value: '${widget.hintsRemaining}',
+                      tint: theme.goldAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _anim,
+              curve: const Interval(0.6, 1.0),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _WideButton(
+                  label: 'TRY AGAIN',
+                  icon: Icons.refresh_rounded,
+                  tint: theme.warmAccent,
+                  primary: true,
+                  onTap: widget.onRestart,
+                ),
+                const SizedBox(height: 12),
+                _WideButton(
+                  label: 'MAIN MENU',
+                  icon: Icons.home_rounded,
+                  tint: theme.primaryAccent,
+                  primary: false,
+                  onTap: widget.onHome,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroIcon extends StatelessWidget {
+  const _HeroIcon({
+    required this.icon,
+    required this.tint,
+    required this.secondaryTint,
+    required this.animation,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final Color secondaryTint;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer glow pulse
+          FadeTransition(
+            opacity: Tween<double>(begin: 1.0, end: 0.2).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.5, 1.0),
+              ),
+            ),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 1.6).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+                ),
+              ),
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: tint.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Solid inner circle
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [tint, secondaryTint],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: tint.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 36),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tint.withValues(alpha: 0.16), width: 1.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: tint, size: 14),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WideButton extends StatelessWidget {
+  const _WideButton({
+    required this.label,
+    required this.icon,
+    required this.tint,
+    required this.primary,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color tint;
+  final bool primary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return GamePressable(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: primary
+              ? LinearGradient(
+                  colors: [tint, Color.lerp(tint, theme.primaryAccent, 0.35)!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: primary ? null : tint.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: primary
+                ? Colors.white.withValues(alpha: 0.2)
+                : tint.withValues(alpha: 0.3),
+            width: primary ? 1.0 : 1.5,
+          ),
+          boxShadow: primary
+              ? [
+                  BoxShadow(
+                    color: tint.withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: primary ? Colors.white : theme.textPrimary,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                color: primary ? Colors.white : theme.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

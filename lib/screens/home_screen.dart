@@ -1298,12 +1298,13 @@ class _HeroGeometryPainter extends CustomPainter {
     final linePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = theme.surfaceStroke.withValues(alpha: 0.05);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8)
+      ..color = theme.surfaceStroke.withValues(alpha: 0.20);
 
     final accentPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9
-      ..color = theme.boardHalo.withValues(alpha: 0.05 + (pulse * 0.015));
+      ..color = theme.boardHalo.withValues(alpha: 0.18 + (pulse * 0.04));
 
     final frame = Path()
       ..moveTo(size.width * 0.24, size.height * 0.14)
@@ -1331,7 +1332,7 @@ class _HeroGeometryPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          theme.boardAura.withValues(alpha: 0.08),
+          theme.boardAura.withValues(alpha: 0.20),
           Colors.transparent,
         ],
       ).createShader(orbitRect);
@@ -1358,7 +1359,8 @@ class _HomeBackdropPainter extends CustomPainter {
     final framePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = theme.surfaceStroke.withValues(alpha: 0.04);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8)
+      ..color = theme.surfaceStroke.withValues(alpha: 0.18);
 
     final frame = Path()
       ..moveTo(size.width * 0.24, size.height * 0.08)
@@ -1387,7 +1389,7 @@ class _HomeBackdropPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          theme.boardAura.withValues(alpha: 0.07),
+          theme.boardAura.withValues(alpha: 0.22),
           Colors.transparent,
         ],
       ).createShader(orbitRect);
@@ -1403,7 +1405,7 @@ class _HomeBackdropPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              theme.boardAura.withValues(alpha: 0.04),
+              theme.boardAura.withValues(alpha: 0.08),
               Colors.transparent,
             ],
           ).createShader(

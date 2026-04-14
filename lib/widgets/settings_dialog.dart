@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../bloc/settings_cubit.dart';
 import '../bloc/settings_state.dart';
@@ -81,7 +82,7 @@ class SettingsDialog extends StatelessWidget {
     _showNotice(context, 'Game title copied for sharing.');
   }
 
-  void _handleFeedback(BuildContext context) {
+  Future<void> _handleFeedback(BuildContext context) async {
     final cubit = context.read<SettingsCubit>();
     cubit.playClickSound();
     cubit.triggerSelectionHaptic();
@@ -91,25 +92,36 @@ class SettingsDialog extends StatelessWidget {
       return;
     }
 
-    // Close the settings dialog first, then show feedback sheet
-    Navigator.of(context).pop();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showFeedbackSheet(context);
-    });
+    // Prepare mailto link
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'ayush.patel2778@gmail.com',
+      // Spaces must be encoded but Uri helper handles most of it,
+      // though older url_launcher required explicit encoding.
+      query: _encodeQueryParameters(<String, String>{
+        'subject': 'App Feedback',
+        'body': "Hi, I'd like to share feedback about the app...\n\n",
+      }),
+    );
+
+    try {
+      if (!await launchUrl(emailLaunchUri, mode: LaunchMode.externalApplication)) {
+        if (context.mounted) {
+          _showNotice(context, 'Could not open email app.');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        _showNotice(context, 'Could not open email app.');
+      }
+    }
   }
 
-  void _showFeedbackSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _FeedbackSheet(
-        onSubmit: (text) {
-          Navigator.of(sheetContext).pop();
-          _showNotice(context, 'Thanks for your feedback! 🙏');
-        },
-      ),
-    );
+  String? _encodeQueryParameters(Map<String, String> params) {
+    return params.entries
+        .map((MapEntry<String, String> e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
   }
 
   void _handleQuitGame(BuildContext context) {
@@ -534,265 +546,6 @@ class _SettingsActionDivider extends StatelessWidget {
             Colors.transparent,
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// In-app Feedback bottom sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _FeedbackSheet extends StatefulWidget {
-  const _FeedbackSheet({required this.onSubmit});
-
-  final ValueChanged<String> onSubmit;
-
-  @override
-  State<_FeedbackSheet> createState() => _FeedbackSheetState();
-}
-
-class _FeedbackSheetState extends State<_FeedbackSheet> {
-  final TextEditingController _controller = TextEditingController();
-  bool _submitted = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    setState(() => _submitted = true);
-    Future.delayed(const Duration(milliseconds: 480), () {
-      widget.onSubmit(text);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    final feedbackTint = Color.lerp(
-      theme.primaryAccent,
-      theme.secondaryAccent,
-      0.3,
-    )!;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      padding: EdgeInsets.fromLTRB(20, 24, 20, 20 + bottomInset),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(theme.surfaceStrong, Colors.white, 0.05)!,
-            Color.lerp(theme.surface, theme.backgroundDark, 0.2)!,
-            Color.lerp(theme.backgroundDeep, Colors.black, 0.04)!,
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 28,
-            spreadRadius: -12,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.12),
-                      feedbackTint.withValues(alpha: 0.2),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: Icon(
-                  Icons.forum_rounded,
-                  color: feedbackTint,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Send Feedback',
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.14,
-                      ),
-                    ),
-                    Text(
-                      'We read every message',
-                      style: TextStyle(
-                        color: theme.textSecondary.withValues(alpha: 0.72),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GamePressable(
-                onTap: () => Navigator.of(context).pop(),
-                pressedScale: 0.94,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(9),
-                    color: Colors.white.withValues(alpha: 0.07),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.07),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    color: theme.textSecondary,
-                    size: 15,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          // Text field
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white.withValues(alpha: 0.05),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
-            ),
-            child: TextField(
-              controller: _controller,
-              maxLines: 5,
-              minLines: 4,
-              style: TextStyle(
-                color: theme.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-              ),
-              decoration: InputDecoration(
-                hintText:
-                    'Share your thoughts, bug reports, or ideas…',
-                hintStyle: TextStyle(
-                  color: theme.textSecondary.withValues(alpha: 0.46),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                ),
-                contentPadding: const EdgeInsets.all(14),
-                border: InputBorder.none,
-              ),
-              cursorColor: feedbackTint,
-              textInputAction: TextInputAction.newline,
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Submit button
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 260),
-            opacity: _submitted ? 0.6 : 1.0,
-            child: GamePressable(
-              onTap: _submitted ? null : _submit,
-              pressedScale: 0.97,
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  gradient: AppTheme.accentGradient(
-                    feedbackTint,
-                    intensity: 0.88,
-                    theme: AppTheme.of(context),
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
-                  ),
-                  boxShadow: AppTheme.premiumShadows(
-                    feedbackTint,
-                    emphasized: true,
-                    theme: AppTheme.of(context),
-                  ),
-                ),
-                child: Center(
-                  child: _submitted
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Sending…',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.send_rounded,
-                              color: Colors.white.withValues(alpha: 0.92),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Send Feedback',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
