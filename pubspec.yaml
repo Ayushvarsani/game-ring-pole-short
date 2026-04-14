@@ -29,7 +29,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/logo.png
+    - assets/images/
+    - assets/images/flip_fun_blast.png
     - assets/audio/tap.wav
     - assets/audio/pour.wav
     - assets/audio/win.wav

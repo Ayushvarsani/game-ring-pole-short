@@ -17,6 +17,7 @@ import '../theme/app_theme_config.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 import '../widgets/settings_dialog.dart';
+import '../widgets/our_games_dialog.dart';
 import 'game_screen.dart';
 import 'shop_screen.dart';
 
@@ -148,12 +149,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context: context,
       barrierLabel: 'Settings',
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.56),
+      barrierColor: Colors.black.withOpacity(0.56),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (context, animation, secondaryAnimation) => const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
           child: SettingsDialog(),
+        ),
+      ),
+      transitionBuilder: (context, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween(begin: 0.94, end: 1.0).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  void _openOurGames() {
+    context.read<SettingsCubit>().playClickSound();
+    context.read<SettingsCubit>().triggerLightHaptic();
+    showGeneralDialog<void>(
+      context: context,
+      barrierLabel: 'Our Games',
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.56),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, animation, secondaryAnimation) => const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: OurGamesDialog(),
         ),
       ),
       transitionBuilder: (context, animation, _, child) {
@@ -225,6 +258,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               metrics: metrics,
                               onOpenShop: _openShop,
                               onOpenSettings: _openSettings,
+                              onOpenOurGames: _openOurGames,
                             ),
                             SizedBox(height: metrics.brandGap),
                             AnimatedBuilder(
@@ -383,12 +417,14 @@ class _HomeUtilityRow extends StatelessWidget {
     required this.metrics,
     required this.onOpenShop,
     required this.onOpenSettings,
+    required this.onOpenOurGames,
   });
 
   final int coins;
   final _HomeViewportMetrics metrics;
   final VoidCallback onOpenShop;
   final VoidCallback onOpenSettings;
+  final VoidCallback onOpenOurGames;
 
   @override
   Widget build(BuildContext context) {
@@ -396,6 +432,14 @@ class _HomeUtilityRow extends StatelessWidget {
 
     return Row(
       children: [
+        GameIconButton(
+          icon: Icons.videogame_asset_rounded,
+          tint: theme.secondaryAccent,
+          size: metrics.utilityIconSize,
+          padding: EdgeInsets.all(metrics.utilityPadding),
+          onTap: onOpenOurGames,
+        ),
+        SizedBox(width: metrics.utilityGap),
         GameIconButton(
           icon: Icons.storefront_rounded,
           tint: theme.warmAccent,
