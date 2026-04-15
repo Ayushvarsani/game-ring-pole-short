@@ -43,8 +43,8 @@ class OurGamesDialog extends StatelessWidget {
                       center: Alignment.topCenter,
                       radius: 1.08,
                       colors: [
-                        theme.primaryAccent.withOpacity(0.12),
-                        theme.boardHalo.withOpacity(0.04),
+                        theme.primaryAccent.withValues(alpha: 0.12),
+                        theme.boardHalo.withValues(alpha: 0.04),
                         Colors.transparent,
                       ],
                       stops: const [0.0, 0.44, 1.0],
@@ -61,15 +61,15 @@ class OurGamesDialog extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withOpacity(0.2),
-                    theme.primaryAccent.withOpacity(0.15),
-                    theme.secondaryAccent.withOpacity(0.15),
-                    Colors.white.withOpacity(0.08),
+                    Colors.white.withValues(alpha: 0.2),
+                    theme.primaryAccent.withValues(alpha: 0.15),
+                    theme.secondaryAccent.withValues(alpha: 0.15),
+                    Colors.white.withValues(alpha: 0.08),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 24,
                     spreadRadius: -12,
                     offset: const Offset(0, 16),
@@ -95,7 +95,7 @@ class OurGamesDialog extends StatelessWidget {
                     stops: const [0.0, 0.58, 1.0],
                   ),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha: 0.12),
                   ),
                 ),
                 child: Padding(
@@ -130,8 +130,9 @@ class OurGamesDialog extends StatelessWidget {
                                       letterSpacing: 0.18,
                                       shadows: [
                                         Shadow(
-                                          color: theme.boardAura
-                                              .withValues(alpha: 0.1),
+                                          color: theme.boardAura.withValues(
+                                            alpha: 0.1,
+                                          ),
                                           blurRadius: 10,
                                         ),
                                       ],
@@ -143,8 +144,9 @@ class OurGamesDialog extends StatelessWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: theme.textSecondary
-                                          .withOpacity(0.78),
+                                      color: theme.textSecondary.withValues(
+                                        alpha: 0.78,
+                                      ),
                                       fontSize: 11.6,
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: 0.14,
@@ -155,8 +157,9 @@ class OurGamesDialog extends StatelessWidget {
                             ),
                             const SizedBox(width: 14),
                             _SettingsCloseButton(
-                                tint: theme.textSecondary,
-                                onTap: () => _closeModal(context)),
+                              tint: theme.textSecondary,
+                              onTap: () => _closeModal(context),
+                            ),
                           ],
                         ),
                       ),
@@ -169,7 +172,7 @@ class OurGamesDialog extends StatelessWidget {
                         child: Text(
                           'Powered by Brainora Infotech',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.35),
+                            color: Colors.white.withValues(alpha: 0.35),
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
                             letterSpacing: 0.4,
@@ -262,6 +265,7 @@ class _FeaturedGameCard extends StatefulWidget {
 class _FeaturedGameCardState extends State<_FeaturedGameCard>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
   final CrossPromoGame game = predefinedCrossPromoGames.first;
@@ -270,10 +274,13 @@ class _FeaturedGameCardState extends State<_FeaturedGameCard>
   void initState() {
     super.initState();
     _animController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 150));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
     );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
   }
 
   @override
@@ -294,136 +301,194 @@ class _FeaturedGameCardState extends State<_FeaturedGameCard>
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+    final isActive = _isHovered || _isPressed;
 
-    return GestureDetector(
-      onTapDown: (_) {
-        _animController.forward();
-        setState(() => _isHovered = true);
-      },
-      onTapUp: (_) {
-        _animController.reverse();
-        setState(() => _isHovered = false);
-        _launchGame();
-      },
-      onTapCancel: () {
-        _animController.reverse();
-        setState(() => _isHovered = false);
-      },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? Colors.white.withOpacity(0.12)
-                : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: _isHovered
-                  ? theme.primaryAccent.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.08),
-              width: 1.5,
-            ),
-            boxShadow: _isHovered
-                ? [
-                    BoxShadow(
-                      color: theme.primaryAccent.withOpacity(0.2),
-                      blurRadius: 15,
-                    )
-                  ]
-                : [],
-          ),
-          child: Row(
-            children: [
-              // Icon Container
-              Container(
-                width: 90,
-                height: 90,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.1),
-                      Colors.black.withOpacity(0.4),
+    return Semantics(
+      button: true,
+      label: 'Play ${game.name} on Google Play',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _launchGame,
+          onTapDown: (_) {
+            _animController.forward();
+            setState(() => _isPressed = true);
+          },
+          onTapUp: (_) {
+            _animController.reverse();
+            setState(() => _isPressed = false);
+          },
+          onTapCancel: () {
+            _animController.reverse();
+            setState(() => _isPressed = false);
+          },
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isActive
+                      ? theme.primaryAccent.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.08),
+                  width: 1.5,
+                ),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.primaryAccent.withValues(alpha: 0.2),
+                          blurRadius: 15,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 300;
+                  final artworkSize = compact ? 86.0 : 104.0;
+                  final contentGap = compact ? 14.0 : 18.0;
+
+                  return Row(
+                    children: [
+                      _GameArtwork(assetPath: game.iconUrl, size: artworkSize),
+                      SizedBox(width: contentGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              game.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontWeight: FontWeight.w700,
+                                fontSize: compact ? 16.5 : 18,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: theme.goldAccent,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Play Now',
+                                  style: TextStyle(
+                                    color: theme.goldAccent.withValues(
+                                      alpha: 0.95,
+                                    ),
+                                    fontSize: compact ? 13 : 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.08),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.primaryAccent.withOpacity(0.2),
-                      blurRadius: 15,
-                      spreadRadius: -2,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Center(
-                    child: Image.asset(
-                      game.iconUrl,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: theme.secondaryAccent.withOpacity(0.2),
-                        child: const Icon(Icons.videogame_asset_rounded,
-                            color: Colors.white54, size: 36),
-                      ),
-                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GameArtwork extends StatelessWidget {
+  const _GameArtwork({required this.assetPath, required this.size});
+
+  final String assetPath;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.1),
+            theme.primaryAccent.withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.34),
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryAccent.withValues(alpha: 0.24),
+            blurRadius: 18,
+            spreadRadius: -3,
+          ),
+          BoxShadow(
+            color: theme.goldAccent.withValues(alpha: 0.12),
+            blurRadius: 14,
+            spreadRadius: -8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.42),
+            blurRadius: 12,
+            spreadRadius: -4,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.22),
+          ),
+          child: Center(
+            child: Image.asset(
+              assetPath,
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+              isAntiAlias: true,
+              errorBuilder: (context, error, stackTrace) => Center(
+                child: Text(
+                  'Flip Fun\nBlast',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: theme.textPrimary.withValues(alpha: 0.72),
+                    fontSize: size < 90 ? 12 : 13,
+                    fontWeight: FontWeight.w800,
+                    height: 1.05,
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      game.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.95),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.play_arrow_rounded,
-                          color: theme.goldAccent,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Play Now',
-                          style: TextStyle(
-                            color: theme.goldAccent.withOpacity(0.95),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
