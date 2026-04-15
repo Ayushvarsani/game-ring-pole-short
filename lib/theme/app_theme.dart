@@ -265,20 +265,37 @@ class AppTheme {
     final active = theme ?? fallbackConfig;
     final accent = borderColor ?? tint ?? active.primaryAccent;
     return BoxDecoration(
-      gradient: active.dialogGradient,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          _blend(active.surfaceStrong, Colors.white, 0.12),
+          _blend(active.surface, accent, 0.12),
+          _blend(active.surfaceMuted, active.secondaryAccent, 0.08),
+          _blend(active.backgroundDeep, Colors.black, 0.08),
+        ],
+        stops: const [0.0, 0.34, 0.68, 1.0],
+      ),
       borderRadius: BorderRadius.circular(radiusLarge),
-      border: Border.all(color: accent.withValues(alpha: 0.28), width: 1.2),
+      border: Border.all(color: accent.withValues(alpha: 0.24), width: 1.1),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.38),
-          blurRadius: 36,
-          offset: const Offset(0, 20),
+          color: Colors.black.withValues(alpha: 0.42),
+          blurRadius: 42,
+          spreadRadius: -14,
+          offset: const Offset(0, 24),
         ),
         BoxShadow(
-          color: accent.withValues(alpha: 0.14),
-          blurRadius: 28,
-          spreadRadius: -6,
-          offset: const Offset(0, 10),
+          color: accent.withValues(alpha: 0.18),
+          blurRadius: 34,
+          spreadRadius: -10,
+          offset: const Offset(0, 12),
+        ),
+        BoxShadow(
+          color: active.secondaryAccent.withValues(alpha: 0.08),
+          blurRadius: 30,
+          spreadRadius: -18,
+          offset: const Offset(-10, -8),
         ),
       ],
     );

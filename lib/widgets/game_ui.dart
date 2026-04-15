@@ -702,47 +702,79 @@ class GameDialogFrame extends StatelessWidget {
       highlighted: true,
       padding: padding,
       decoration: AppTheme.dialogDecoration(tint: tint, theme: theme),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle!,
-                        style: TextStyle(
-                          color: theme.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                          letterSpacing: 0.14,
-                        ),
-                      ),
+          Positioned(
+            left: -28,
+            right: -28,
+            top: -34,
+            height: 130,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.topCenter,
+                    radius: 0.9,
+                    colors: [
+                      (tint ?? theme.primaryAccent).withValues(alpha: 0.16),
+                      theme.boardAura.withValues(alpha: 0.06),
+                      Colors.transparent,
                     ],
-                  ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 14), trailing!],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.1,
+                            height: 1.04,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle!,
+                            style: TextStyle(
+                              color: theme.textSecondary.withValues(
+                                alpha: 0.86,
+                              ),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              height: 1.35,
+                              letterSpacing: 0.14,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 14),
+                    trailing!,
+                  ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              child,
             ],
           ),
-          const SizedBox(height: 16),
-          child,
         ],
       ),
     );

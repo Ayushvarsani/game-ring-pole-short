@@ -1559,128 +1559,228 @@ class _WinDialogState extends State<_WinDialog>
       tint: theme.goldAccent,
       radius: AppTheme.radiusLarge + 4,
       highlighted: true,
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
       decoration: AppTheme.dialogDecoration(
         tint: theme.goldAccent,
         theme: theme,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Hero Icon with pulsing ambient glow
-          _HeroIcon(
-            icon: Icons.emoji_events_rounded,
-            tint: theme.goldAccent,
-            secondaryTint: theme.warmAccent,
-            animation: _anim,
-          ),
-          const SizedBox(height: 24),
-
-          // Gradient Title
-          FadeTransition(
-            opacity: CurvedAnimation(
-              parent: _anim,
-              curve: const Interval(0.2, 0.8),
-            ),
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [Colors.white, theme.goldAccent.withValues(alpha: 0.8)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ).createShader(bounds),
-              child: Text(
-                'LEVEL COMPLETE',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0,
-                  height: 1.0,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _WinModalSparklePainter(
+                  animation: _anim,
+                  theme: theme,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Reward summary
-          SlideTransition(
-            position:
-                Tween<Offset>(
-                  begin: const Offset(0, 0.2),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _HeroIcon(
+                icon: Icons.emoji_events_rounded,
+                tint: theme.goldAccent,
+                secondaryTint: theme.warmAccent,
+                animation: _anim,
+              ),
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _anim,
+                  curve: const Interval(0.2, 0.8),
+                ),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [
+                      Colors.white,
+                      theme.goldAccent.withValues(alpha: 0.8),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ).createShader(bounds),
+                  child: Text(
+                    'LEVEL COMPLETE',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.2),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: _anim,
+                        curve: const Interval(
+                          0.4,
+                          0.9,
+                          curve: Curves.easeOutBack,
+                        ),
+                      ),
+                    ),
+                child: FadeTransition(
+                  opacity: CurvedAnimation(
                     parent: _anim,
-                    curve: const Interval(0.4, 0.9, curve: Curves.easeOutBack),
+                    curve: const Interval(0.4, 0.9),
                   ),
+                  child: _WinRewardSection(coinsEarned: displayedCoins),
                 ),
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _anim,
-                curve: const Interval(0.4, 0.9),
               ),
-              child: _WinRewardSection(coinsEarned: displayedCoins),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Actions
-          FadeTransition(
-            opacity: CurvedAnimation(
-              parent: _anim,
-              curve: const Interval(0.6, 1.0),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: _WideButton(
-                    label: 'HOME',
-                    icon: Icons.home_rounded,
-                    tint: theme.primaryAccent,
-                    primary: false,
-                    height: 44,
-                    compact: true,
-                    showIcon: false,
-                    onTap: _isClaimingDoubleCoins ? null : widget.onHome,
-                  ),
+              const SizedBox(height: 18),
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _anim,
+                  curve: const Interval(0.6, 1.0),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _WideButton(
-                    label: 'NEXT',
-                    icon: Icons.arrow_forward_rounded,
-                    tint: theme.goldAccent,
-                    primary: true,
-                    height: 44,
-                    compact: true,
-                    showIcon: false,
-                    onTap: _isClaimingDoubleCoins ? null : widget.onNext,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _WideButton(
+                        label: 'HOME',
+                        icon: Icons.home_rounded,
+                        tint: theme.primaryAccent,
+                        primary: false,
+                        height: 44,
+                        compact: true,
+                        showIcon: false,
+                        onTap: _isClaimingDoubleCoins ? null : widget.onHome,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _WideButton(
+                        label: 'NEXT',
+                        icon: Icons.arrow_forward_rounded,
+                        tint: theme.goldAccent,
+                        primary: true,
+                        height: 44,
+                        compact: true,
+                        showIcon: false,
+                        onTap: _isClaimingDoubleCoins ? null : widget.onNext,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DoubleCoinsRewardCard(
+                        bonusCoins: widget.coinsEarned,
+                        claimed: _doubleCoinsClaimed,
+                        loading: _isClaimingDoubleCoins,
+                        message: _doubleCoinsMessage,
+                        messageIsError: _doubleCoinsMessageIsError,
+                        height: 44,
+                        onTap: _doubleCoinsClaimed || _isClaimingDoubleCoins
+                            ? null
+                            : _handleDoubleCoinsTap,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _DoubleCoinsRewardCard(
-                    bonusCoins: widget.coinsEarned,
-                    claimed: _doubleCoinsClaimed,
-                    loading: _isClaimingDoubleCoins,
-                    message: _doubleCoinsMessage,
-                    messageIsError: _doubleCoinsMessageIsError,
-                    height: 44,
-                    onTap: _doubleCoinsClaimed || _isClaimingDoubleCoins
-                        ? null
-                        : _handleDoubleCoinsTap,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+}
+
+class _WinModalSparklePainter extends CustomPainter {
+  const _WinModalSparklePainter({required this.animation, required this.theme})
+    : super(repaint: animation);
+
+  final Animation<double> animation;
+  final AppThemeConfig theme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final progress = Curves.easeOutCubic.transform(animation.value);
+    final glowPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    final sparkles = <({Offset position, double radius, Color color})>[
+      (
+        position: Offset(size.width * 0.16, size.height * 0.18),
+        radius: 2.2,
+        color: theme.goldAccent,
+      ),
+      (
+        position: Offset(size.width * 0.82, size.height * 0.20),
+        radius: 1.8,
+        color: theme.warmAccent,
+      ),
+      (
+        position: Offset(size.width * 0.24, size.height * 0.64),
+        radius: 1.5,
+        color: theme.secondaryAccent,
+      ),
+      (
+        position: Offset(size.width * 0.78, size.height * 0.58),
+        radius: 2.0,
+        color: theme.goldAccent,
+      ),
+    ];
+
+    for (final sparkle in sparkles) {
+      final alpha = (0.04 + (progress * 0.14)).clamp(0.0, 0.18);
+      glowPaint.color = sparkle.color.withValues(alpha: alpha);
+      canvas.drawCircle(
+        sparkle.position,
+        sparkle.radius + (progress * 1.4),
+        glowPaint,
+      );
+
+      final linePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..strokeCap = StrokeCap.round
+        ..color = sparkle.color.withValues(alpha: alpha + 0.04);
+      final arm = sparkle.radius * (2.4 + progress);
+      canvas.drawLine(
+        sparkle.position.translate(-arm, 0),
+        sparkle.position.translate(arm, 0),
+        linePaint,
+      );
+      canvas.drawLine(
+        sparkle.position.translate(0, -arm),
+        sparkle.position.translate(0, arm),
+        linePaint,
+      );
+    }
+
+    final sweepRect = Rect.fromLTWH(0, size.height * 0.1, size.width, 64);
+    final sweepPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          theme.goldAccent.withValues(alpha: 0.05 * progress),
+          Colors.transparent,
+        ],
+      ).createShader(sweepRect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sweepRect, const Radius.circular(32)),
+      sweepPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WinModalSparklePainter oldDelegate) {
+    return oldDelegate.animation != animation || oldDelegate.theme != theme;
   }
 }
 
@@ -1803,17 +1903,17 @@ class _DoubleCoinsRewardCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: tint.withValues(alpha: claimed ? 0.36 : 0.28),
                     width: 1.1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: tint.withValues(alpha: claimed ? 0.18 : 0.14),
-                      blurRadius: 14,
-                      spreadRadius: -8,
-                      offset: const Offset(0, 8),
+                      color: tint.withValues(alpha: claimed ? 0.22 : 0.18),
+                      blurRadius: 18,
+                      spreadRadius: -9,
+                      offset: const Offset(0, 9),
                     ),
                   ],
                 ),
@@ -1968,7 +2068,7 @@ class _ExtraMovesDialogState extends State<_ExtraMovesDialog>
       tint: theme.dangerAccent,
       radius: AppTheme.radiusLarge + 4,
       highlighted: true,
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       decoration: AppTheme.dialogDecoration(
         tint: theme.dangerAccent,
         theme: theme,
@@ -1983,7 +2083,7 @@ class _ExtraMovesDialogState extends State<_ExtraMovesDialog>
             secondaryTint: theme.warmAccent,
             animation: _anim,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           FadeTransition(
             opacity: CurvedAnimation(
               parent: _anim,
@@ -2012,7 +2112,7 @@ class _ExtraMovesDialogState extends State<_ExtraMovesDialog>
               height: 1.35,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           _RecoveryDialogButton(
             label: _isLoadingAd ? 'LOADING AD' : 'WATCH AD',
             icon: _isLoadingAd
@@ -2088,7 +2188,7 @@ class _RecoveryDialogButton extends StatelessWidget {
                           )
                         : null,
                     color: primary ? null : tint.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: primary
                           ? Colors.white.withValues(alpha: 0.18)
@@ -2098,9 +2198,9 @@ class _RecoveryDialogButton extends StatelessWidget {
                         ? [
                             BoxShadow(
                               color: tint.withValues(alpha: 0.24),
-                              blurRadius: 14,
-                              spreadRadius: -5,
-                              offset: const Offset(0, 8),
+                              blurRadius: 18,
+                              spreadRadius: -8,
+                              offset: const Offset(0, 9),
                             ),
                           ]
                         : null,
@@ -2248,12 +2348,12 @@ class _GameOverDialogState extends State<_GameOverDialog>
     final theme = AppTheme.of(context);
 
     return GlassCard(
-      tint: theme.warmAccent,
+      tint: theme.dangerAccent,
       radius: AppTheme.radiusLarge + 4,
       highlighted: true,
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
       decoration: AppTheme.dialogDecoration(
-        tint: theme.warmAccent,
+        tint: theme.dangerAccent,
         theme: theme,
       ),
       child: Column(
@@ -2266,7 +2366,7 @@ class _GameOverDialogState extends State<_GameOverDialog>
             secondaryTint: theme.dangerAccent,
             animation: _anim,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           FadeTransition(
             opacity: CurvedAnimation(
@@ -2275,7 +2375,10 @@ class _GameOverDialogState extends State<_GameOverDialog>
             ),
             child: ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
-                colors: [Colors.white, theme.warmAccent.withValues(alpha: 0.8)],
+                colors: [
+                  Colors.white,
+                  theme.dangerAccent.withValues(alpha: 0.82),
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ).createShader(bounds),
@@ -2292,7 +2395,7 @@ class _GameOverDialogState extends State<_GameOverDialog>
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 22),
 
           SlideTransition(
             position:
@@ -2333,7 +2436,7 @@ class _GameOverDialogState extends State<_GameOverDialog>
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
           FadeTransition(
             opacity: CurvedAnimation(
@@ -2383,25 +2486,47 @@ class _HeroIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(
-      scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+      scale: Tween<double>(begin: 0.82, end: 1.0).animate(
         CurvedAnimation(
           parent: animation,
-          curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+          curve: const Interval(0.0, 0.62, curve: Curves.easeOutBack),
         ),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer glow pulse
           FadeTransition(
-            opacity: Tween<double>(begin: 1.0, end: 0.2).animate(
+            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
+              ),
+            ),
+            child: Container(
+              width: 108,
+              height: 108,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    tint.withValues(alpha: 0.26),
+                    secondaryTint.withValues(alpha: 0.11),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.48, 1.0],
+                ),
+              ),
+            ),
+          ),
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.95, end: 0.24).animate(
               CurvedAnimation(
                 parent: animation,
                 curve: const Interval(0.5, 1.0),
               ),
             ),
             child: ScaleTransition(
-              scale: Tween<double>(begin: 1.0, end: 1.6).animate(
+              scale: Tween<double>(begin: 0.9, end: 1.55).animate(
                 CurvedAnimation(
                   parent: animation,
                   curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
@@ -2413,34 +2538,89 @@ class _HeroIcon extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: tint.withValues(alpha: 0.5),
-                    width: 2,
+                    color: tint.withValues(alpha: 0.38),
+                    width: 1.4,
                   ),
                 ),
               ),
             ),
           ),
-          // Solid inner circle
           Container(
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [tint, secondaryTint],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              gradient: RadialGradient(
+                center: const Alignment(-0.35, -0.38),
+                radius: 1.0,
+                colors: [
+                  Colors.white.withValues(alpha: 0.45),
+                  tint,
+                  secondaryTint,
+                  Colors.black.withValues(alpha: 0.1),
+                ],
+                stops: const [0.0, 0.22, 0.72, 1.0],
               ),
               shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               boxShadow: [
                 BoxShadow(
-                  color: tint.withValues(alpha: 0.4),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 8),
+                  color: tint.withValues(alpha: 0.36),
+                  blurRadius: 28,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: secondaryTint.withValues(alpha: 0.2),
+                  blurRadius: 18,
+                  spreadRadius: -8,
+                  offset: const Offset(-8, -6),
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 36),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  left: 15,
+                  right: 15,
+                  top: 9,
+                  child: Container(
+                    height: 16,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.35),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Icon(icon, color: Colors.white, size: 34),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 5,
+            top: 15,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.78),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: tint.withValues(alpha: 0.34),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -2561,7 +2741,7 @@ class _WideButton extends StatelessWidget {
                   )
                 : null,
             color: primary ? null : tint.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: primary
                   ? Colors.white.withValues(alpha: 0.2)

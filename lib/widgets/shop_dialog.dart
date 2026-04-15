@@ -24,16 +24,18 @@ class _ShopDialogState extends State<ShopDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
       child: GameDialogFrame(
         title: 'Quick Shop',
         subtitle: 'Swap bottles and fill styles without leaving the board.',
-        tint: AppTheme.accentWarm,
+        tint: theme.primaryAccent,
         trailing: GameIconButton(
           icon: Icons.close_rounded,
-          tint: AppTheme.accentWarm,
+          tint: theme.primaryAccent,
           onTap: () {
             context.read<SettingsCubit>().playClickSound();
             Navigator.of(context).pop();

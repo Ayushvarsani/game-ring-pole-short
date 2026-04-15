@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context: context,
       barrierLabel: 'Settings',
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.56),
+      barrierColor: Colors.black.withValues(alpha: 0.56),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (context, animation, secondaryAnimation) => const Center(
         child: Padding(
