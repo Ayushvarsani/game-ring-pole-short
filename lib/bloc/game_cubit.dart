@@ -250,7 +250,7 @@ class GameCubit extends Cubit<GameState> {
   /// Show a hint by highlighting a valid pour move.
   void getHint() {
     if (state.status != GameStatus.playing) return;
-    
+
     // hint check logic is deferred to ad_service's requiresAdForHint.
     // If it's exhausted, handleHintClick will trigger AdMob automatically.
 
@@ -305,6 +305,19 @@ class GameCubit extends Cubit<GameState> {
     if (state.hintSourceIndex != -1 || state.hintDestIndex != -1) {
       emit(state.copyWith(hintSourceIndex: -1, hintDestIndex: -1));
     }
+  }
+
+  /// Adds extra moves to the current level attempt and resumes play.
+  void addExtraMoves(int extraMoves) {
+    if (extraMoves <= 0 || state.status == GameStatus.won) return;
+
+    emit(
+      state.copyWith(
+        status: GameStatus.playing,
+        moveLimit: state.moveLimit + extraMoves,
+        selectedBottleIndex: -1,
+      ),
+    );
   }
 
   /// Advance to the next level.

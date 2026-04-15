@@ -33,10 +33,11 @@ class PouringStreamPainter extends CustomPainter {
         end == Offset.zero) {
       return;
     }
+    final baseColor = GameColors.normalize(color);
 
     final curve = _buildCurve();
     if (fillType != FillType.liquid) {
-      _paintObjects(canvas, curve, streamOpacity);
+      _paintObjects(canvas, curve, streamOpacity, baseColor);
       return;
     }
 
@@ -47,7 +48,7 @@ class PouringStreamPainter extends CustomPainter {
     final innerPath = _buildStreamShape(points, widthMultiplier: 0.44);
 
     final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.2 * streamOpacity)
+      ..color = baseColor.withValues(alpha: 0.2 * streamOpacity)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.drawPath(outerPath, glowPaint);
 
@@ -56,9 +57,9 @@ class PouringStreamPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          GameColors.lighten(color, 0.22).withValues(alpha: streamOpacity),
-          color.withValues(alpha: streamOpacity),
-          GameColors.darken(color, 0.18).withValues(alpha: streamOpacity),
+          GameColors.lighten(baseColor, 0.22).withValues(alpha: streamOpacity),
+          baseColor.withValues(alpha: streamOpacity),
+          GameColors.darken(baseColor, 0.18).withValues(alpha: streamOpacity),
         ],
       ).createShader(Rect.fromPoints(start, end))
       ..style = PaintingStyle.fill;
@@ -94,8 +95,11 @@ class PouringStreamPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            GameColors.lighten(color, 0.12).withValues(alpha: streamOpacity),
-            color.withValues(alpha: streamOpacity),
+            GameColors.lighten(
+              baseColor,
+              0.12,
+            ).withValues(alpha: streamOpacity),
+            baseColor.withValues(alpha: streamOpacity),
           ],
         ).createShader(dropletRect);
       canvas.drawOval(dropletRect, dropletPaint);
@@ -189,7 +193,12 @@ class PouringStreamPainter extends CustomPainter {
     return path;
   }
 
-  void _paintObjects(Canvas canvas, _CurveData curve, double streamOpacity) {
+  void _paintObjects(
+    Canvas canvas,
+    _CurveData curve,
+    double streamOpacity,
+    Color baseColor,
+  ) {
     const objectCount = 3;
     for (int i = 0; i < objectCount; i++) {
       final t = ((flowPhase * 1.4) + (i / objectCount)) % 1.0;
@@ -213,9 +222,9 @@ class PouringStreamPainter extends CustomPainter {
         final paint = Paint()
           ..shader = RadialGradient(
             colors: [
-              GameColors.lighten(color, 0.2),
-              color,
-              GameColors.darken(color, 0.22),
+              GameColors.lighten(baseColor, 0.2),
+              baseColor,
+              GameColors.darken(baseColor, 0.22),
             ],
             stops: const [0.0, 0.55, 1.0],
             center: const Alignment(-0.3, -0.3),
@@ -232,9 +241,9 @@ class PouringStreamPainter extends CustomPainter {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              GameColors.lighten(color, 0.14),
-              color,
-              GameColors.darken(color, 0.16),
+              GameColors.lighten(baseColor, 0.14),
+              baseColor,
+              GameColors.darken(baseColor, 0.16),
             ],
           ).createShader(rect);
         canvas.drawRRect(
@@ -242,9 +251,9 @@ class PouringStreamPainter extends CustomPainter {
           paint,
         );
       } else if (fillType == FillType.stars) {
-        _drawStar(canvas, 0, 0, radius, color);
+        _drawStar(canvas, 0, 0, radius, baseColor);
       } else if (fillType == FillType.diamonds) {
-        _drawDiamond(canvas, 0, 0, radius, color);
+        _drawDiamond(canvas, 0, 0, radius, baseColor);
       }
       canvas.restore();
     }
@@ -257,6 +266,7 @@ class PouringStreamPainter extends CustomPainter {
     double radius,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final path = Path();
     for (int i = 0; i < 5; i++) {
       final angle = (i * 4 * pi / 5) - pi / 2;
@@ -272,9 +282,9 @@ class PouringStreamPainter extends CustomPainter {
     final paint = Paint()
       ..shader = LinearGradient(
         colors: [
-          GameColors.lighten(color, 0.18),
-          color,
-          GameColors.darken(color, 0.16),
+          GameColors.lighten(baseColor, 0.18),
+          baseColor,
+          GameColors.darken(baseColor, 0.16),
         ],
       ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
     canvas.drawPath(path, paint);
@@ -287,6 +297,7 @@ class PouringStreamPainter extends CustomPainter {
     double radius,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final path = Path()
       ..moveTo(cx, cy - radius)
       ..lineTo(cx + radius * 0.78, cy)
@@ -296,9 +307,9 @@ class PouringStreamPainter extends CustomPainter {
     final paint = Paint()
       ..shader = LinearGradient(
         colors: [
-          GameColors.lighten(color, 0.16),
-          color,
-          GameColors.darken(color, 0.16),
+          GameColors.lighten(baseColor, 0.16),
+          baseColor,
+          GameColors.darken(baseColor, 0.16),
         ],
       ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
     canvas.drawPath(path, paint);

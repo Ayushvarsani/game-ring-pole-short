@@ -447,10 +447,12 @@ class LiquidPainter extends CustomPainter {
   void _drawLiquid(Canvas canvas, BottleGeometry g) {
     if (bottle.isEmpty && !(isDest && pourCount > 0)) return;
 
-    final colors = List<Color>.from(bottle.colors);
+    final colors = bottle.colors
+        .map(GameColors.normalize)
+        .toList(growable: true);
     if (isDest && pourCount > 0 && pourColor != null) {
       for (int i = 0; i < pourCount; i++) {
-        colors.add(pourColor!);
+        colors.add(GameColors.normalize(pourColor!));
       }
     }
 
@@ -496,7 +498,7 @@ class LiquidPainter extends CustomPainter {
 
       if (thisSegmentHeight <= 0) continue;
       final segTop = currentWorldBottom - thisSegmentHeight;
-      final color = colors[i];
+      final color = GameColors.normalize(colors[i]);
 
       canvas.save();
       canvas.clipPath(clipPath);
@@ -516,6 +518,7 @@ class LiquidPainter extends CustomPainter {
               worldBounds.right + 20,
               currentWorldBottom,
             ),
+            doAntiAlias: false,
           );
           canvas.translate(pivotX, pivotY);
           canvas.rotate(tiltAngle);
@@ -528,6 +531,7 @@ class LiquidPainter extends CustomPainter {
               g.right + 20,
               currentWorldBottom,
             ),
+            doAntiAlias: false,
           );
         }
 
@@ -538,30 +542,10 @@ class LiquidPainter extends CustomPainter {
           g.bottom,
         );
         final liquidPaint = Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              GameColors.lighten(color, 0.16),
-              color,
-              GameColors.darken(color, 0.16),
-            ],
-            stops: const [0.0, 0.45, 1.0],
-          ).createShader(liquidRect);
+          ..color = color
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = false;
         canvas.drawRect(liquidRect, liquidPaint);
-
-        final shinePaint = Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.0),
-              Colors.white.withValues(alpha: 0.08),
-              Colors.white.withValues(alpha: 0.0),
-            ],
-            stops: const [0.0, 0.36, 1.0],
-          ).createShader(liquidRect);
-        canvas.drawRect(liquidRect, shinePaint);
       } else {
         _drawStructuredFill(canvas, g, i, effectiveSegments, color);
       }
@@ -621,6 +605,7 @@ class LiquidPainter extends CustomPainter {
     double effectiveSegments,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final localSegHeight = (g.bottom - g.top) / kMaxBottleCapacity;
     final localSegBottom = g.bottom - (segmentIndex * localSegHeight);
     final localSegTop = localSegBottom - localSegHeight;
@@ -642,9 +627,9 @@ class LiquidPainter extends CustomPainter {
         ..shader =
             RadialGradient(
               colors: [
-                GameColors.lighten(color, 0.22),
-                color,
-                GameColors.darken(color, 0.24),
+                GameColors.lighten(baseColor, 0.22),
+                baseColor,
+                GameColors.darken(baseColor, 0.24),
               ],
               stops: const [0.0, 0.56, 1.0],
               center: const Alignment(-0.3, -0.3),
@@ -663,9 +648,9 @@ class LiquidPainter extends CustomPainter {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            GameColors.lighten(color, 0.16),
-            color,
-            GameColors.darken(color, 0.16),
+            GameColors.lighten(baseColor, 0.16),
+            baseColor,
+            GameColors.darken(baseColor, 0.16),
           ],
         ).createShader(rect);
       canvas.drawRRect(
@@ -673,7 +658,7 @@ class LiquidPainter extends CustomPainter {
         fillPaint,
       );
       final borderPaint = Paint()
-        ..color = GameColors.darken(color, 0.24)
+        ..color = GameColors.darken(baseColor, 0.24)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6;
       canvas.drawRRect(
@@ -681,9 +666,9 @@ class LiquidPainter extends CustomPainter {
         borderPaint,
       );
     } else if (fillType == FillType.stars) {
-      _drawStar(canvas, cx, localCy, radius, color);
+      _drawStar(canvas, cx, localCy, radius, baseColor);
     } else if (fillType == FillType.diamonds) {
-      _drawDiamond(canvas, cx, localCy, radius, color);
+      _drawDiamond(canvas, cx, localCy, radius, baseColor);
     }
   }
 
@@ -860,6 +845,7 @@ class LiquidPainter extends CustomPainter {
     double surfaceY,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final width = right - left;
     final amplitude = (isSource || isDest) ? 2.8 : 1.4;
     final frequency = 2.0 * pi * 1.7 / width;
@@ -877,27 +863,10 @@ class LiquidPainter extends CustomPainter {
       ..close();
 
     final surfacePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          GameColors.lighten(color, 0.2),
-          GameColors.lighten(color, 0.08),
-        ],
-      ).createShader(Rect.fromLTRB(left, surfaceY - 4, right, surfaceY + 6));
+      ..color = baseColor
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = false;
     canvas.drawPath(wavePath, surfacePaint);
-
-    final highlightPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
-      ..strokeWidth = 0.9
-      ..style = PaintingStyle.stroke;
-    final linePath = Path()..moveTo(left, surfaceY);
-    for (double x = left; x <= right; x += 1.4) {
-      final y =
-          surfaceY + amplitude * sin(frequency * (x - left) + wobblePhase);
-      linePath.lineTo(x, y);
-    }
-    canvas.drawPath(linePath, highlightPaint);
   }
 
   void _drawStar(
@@ -907,6 +876,7 @@ class LiquidPainter extends CustomPainter {
     double radius,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final path = Path();
     for (int i = 0; i < 5; i++) {
       final angle = (i * 4 * pi / 5) - pi / 2;
@@ -924,9 +894,9 @@ class LiquidPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          GameColors.lighten(color, 0.18),
-          color,
-          GameColors.darken(color, 0.16),
+          GameColors.lighten(baseColor, 0.18),
+          baseColor,
+          GameColors.darken(baseColor, 0.16),
         ],
       ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
     canvas.drawPath(path, paint);
@@ -939,6 +909,7 @@ class LiquidPainter extends CustomPainter {
     double radius,
     Color color,
   ) {
+    final baseColor = GameColors.normalize(color);
     final path = Path()
       ..moveTo(cx, cy - radius)
       ..lineTo(cx + radius * 0.78, cy)
@@ -948,9 +919,9 @@ class LiquidPainter extends CustomPainter {
     final paint = Paint()
       ..shader = LinearGradient(
         colors: [
-          GameColors.lighten(color, 0.18),
-          color,
-          GameColors.darken(color, 0.14),
+          GameColors.lighten(baseColor, 0.18),
+          baseColor,
+          GameColors.darken(baseColor, 0.14),
         ],
       ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
     canvas.drawPath(path, paint);

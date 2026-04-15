@@ -45,9 +45,14 @@ class GameColors {
     return allColors.sublist(0, count);
   }
 
+  /// Returns the exact game color without inherited/transient alpha.
+  static Color normalize(Color color) {
+    return Color((color.toARGB32() & 0x00FFFFFF) | 0xFF000000);
+  }
+
   /// Returns a slightly lighter version of the color (for liquid highlights).
   static Color lighten(Color color, [double amount = 0.15]) {
-    final hsl = HSLColor.fromColor(color);
+    final hsl = HSLColor.fromColor(normalize(color));
     return hsl
         .withLightness((hsl.lightness + amount).clamp(0.0, 1.0))
         .toColor();
@@ -55,7 +60,7 @@ class GameColors {
 
   /// Returns a slightly darker version of the color (for liquid shadows).
   static Color darken(Color color, [double amount = 0.15]) {
-    final hsl = HSLColor.fromColor(color);
+    final hsl = HSLColor.fromColor(normalize(color));
     return hsl
         .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
         .toColor();
