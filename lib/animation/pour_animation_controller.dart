@@ -8,55 +8,89 @@ import '../painters/liquid_painter.dart';
 class PourAnimationController {
   PourAnimationController({
     required TickerProvider vsync,
-    this.duration = const Duration(milliseconds: 920),
+    this.duration = const Duration(milliseconds: 1040),
   }) : controller = AnimationController(vsync: vsync, duration: duration) {
+    travel = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized)),
+        weight: 24,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 62),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized)),
+        weight: 14,
+      ),
+    ]).animate(controller);
+
     tilt = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 24),
       TweenSequenceItem(
         tween: Tween<double>(
           begin: 0.0,
           end: 1.0,
         ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 22,
+        weight: 16,
       ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 58),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 32),
       TweenSequenceItem(
         tween: Tween<double>(
           begin: 1.0,
           end: 0.0,
         ).chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 20,
+        weight: 14,
       ),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 14),
     ]).animate(controller);
 
     stream = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 12),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 40),
       TweenSequenceItem(
         tween: Tween<double>(
           begin: 0.0,
           end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 28,
+        ).chain(CurveTween(curve: Curves.easeOutQuart)),
+        weight: 8,
       ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 18),
       TweenSequenceItem(
         tween: Tween<double>(
           begin: 1.0,
           end: 0.0,
         ).chain(CurveTween(curve: Curves.easeInCubic)),
-        weight: 20,
+        weight: 6,
       ),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 28),
     ]).animate(controller);
 
-    transfer = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 22),
+    streamLength = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 40),
       TweenSequenceItem(
         tween: Tween<double>(
           begin: 0.0,
           end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 58,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 8,
       ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 20),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 24),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 28),
+    ]).animate(controller);
+
+    transfer = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 40),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeInOutSine)),
+        weight: 32,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 28),
     ]).animate(controller);
   }
 
@@ -67,7 +101,9 @@ class PourAnimationController {
   final AnimationController controller;
 
   late final Animation<double> tilt;
+  late final Animation<double> travel;
   late final Animation<double> stream;
+  late final Animation<double> streamLength;
   late final Animation<double> transfer;
 
   _PourLayout? _layout;
@@ -78,10 +114,16 @@ class PourAnimationController {
     final layout = _layout;
     if (layout == null) return null;
 
-    final sourceTopLeft = layout.sourceTopLeft + (layout.travel * tilt.value);
+    final travelProgress = travel.value;
+    final sourceTopLeft =
+        layout.sourceTopLeft +
+        (layout.travel * travelProgress) +
+        Offset(0, -sin(travelProgress * pi) * 10.0);
     final sourceTiltAngle = layout.direction * maxTiltAngle * tilt.value;
     final destinationLiftY = -sin(transfer.value * pi) * 6.0;
     final destinationScale = 1.0 + (sin(transfer.value * pi) * 0.035);
+    final streamOpacity = tilt.value >= 0.98 ? stream.value : 0.0;
+    final activeStreamLength = streamOpacity > 0.01 ? streamLength.value : 0.0;
 
     return PourAnimationFrame(
       sourceTopLeft: sourceTopLeft,
@@ -90,7 +132,8 @@ class PourAnimationController {
       destinationLiftY: destinationLiftY,
       destinationScale: destinationScale,
       transferProgress: transfer.value,
-      streamProgress: stream.value,
+      streamProgress: activeStreamLength,
+      streamOpacity: streamOpacity,
       streamStart: _transformBottlePoint(
         localPoint: layout.sourcePourPoint,
         bottleSize: layout.bottleSize,
@@ -236,6 +279,7 @@ class PourAnimationFrame {
     required this.destinationScale,
     required this.transferProgress,
     required this.streamProgress,
+    required this.streamOpacity,
     required this.streamStart,
     required this.streamEnd,
   });
@@ -247,6 +291,7 @@ class PourAnimationFrame {
   final double destinationScale;
   final double transferProgress;
   final double streamProgress;
+  final double streamOpacity;
   final Offset streamStart;
   final Offset streamEnd;
 }

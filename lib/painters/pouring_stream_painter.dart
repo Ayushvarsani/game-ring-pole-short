@@ -11,6 +11,7 @@ class PouringStreamPainter extends CustomPainter {
     required this.end,
     required this.color,
     required this.progress,
+    required this.opacity,
     required this.flowPhase,
     this.fillType = FillType.liquid,
   });
@@ -19,16 +20,23 @@ class PouringStreamPainter extends CustomPainter {
   final Offset end;
   final Color color;
   final double progress;
+  final double opacity;
   final double flowPhase;
   final FillType fillType;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (progress <= 0 || start == Offset.zero || end == Offset.zero) return;
+    final streamOpacity = opacity.clamp(0.0, 1.0);
+    if (progress <= 0 ||
+        streamOpacity <= 0.01 ||
+        start == Offset.zero ||
+        end == Offset.zero) {
+      return;
+    }
 
     final curve = _buildCurve();
     if (fillType != FillType.liquid) {
-      _paintObjects(canvas, curve);
+      _paintObjects(canvas, curve, streamOpacity);
       return;
     }
 
@@ -39,8 +47,8 @@ class PouringStreamPainter extends CustomPainter {
     final innerPath = _buildStreamShape(points, widthMultiplier: 0.44);
 
     final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.18)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..color = color.withValues(alpha: 0.2 * streamOpacity)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.drawPath(outerPath, glowPaint);
 
     final streamPaint = Paint()
@@ -48,9 +56,9 @@ class PouringStreamPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          GameColors.lighten(color, 0.16),
-          color,
-          GameColors.darken(color, 0.16),
+          GameColors.lighten(color, 0.22).withValues(alpha: streamOpacity),
+          color.withValues(alpha: streamOpacity),
+          GameColors.darken(color, 0.18).withValues(alpha: streamOpacity),
         ],
       ).createShader(Rect.fromPoints(start, end))
       ..style = PaintingStyle.fill;
@@ -61,7 +69,7 @@ class PouringStreamPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withValues(alpha: 0.36),
+          Colors.white.withValues(alpha: 0.38 * streamOpacity),
           Colors.white.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromPoints(start, end))
@@ -69,7 +77,7 @@ class PouringStreamPainter extends CustomPainter {
     canvas.drawPath(innerPath, highlightPaint);
 
     final edgePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.14)
+      ..color = Colors.white.withValues(alpha: 0.14 * streamOpacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawPath(_buildCenterLine(points), edgePaint);
@@ -85,7 +93,10 @@ class PouringStreamPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [GameColors.lighten(color, 0.12), color],
+          colors: [
+            GameColors.lighten(color, 0.12).withValues(alpha: streamOpacity),
+            color.withValues(alpha: streamOpacity),
+          ],
         ).createShader(dropletRect);
       canvas.drawOval(dropletRect, dropletPaint);
     }
@@ -94,14 +105,15 @@ class PouringStreamPainter extends CustomPainter {
   _CurveData _buildCurve() {
     final distance = (end - start).distance;
     final direction = end.dx >= start.dx ? 1.0 : -1.0;
-    final controlHeight = min(88.0, distance * 0.36 + 14);
+    final verticalDrop = end.dy - start.dy;
+    final fall = max(16.0, verticalDrop.abs() * 0.36 + distance * 0.08);
     final controlA = Offset(
-      start.dx + (distance * 0.18 * direction),
-      start.dy - controlHeight,
+      start.dx + (distance * 0.24 * direction),
+      start.dy + fall * 0.18,
     );
     final controlB = Offset(
-      end.dx - (distance * 0.14 * direction),
-      end.dy - (controlHeight * 0.34),
+      end.dx - (distance * 0.16 * direction),
+      end.dy - fall * 0.2,
     );
     return _CurveData(controlA: controlA, controlB: controlB);
   }
@@ -130,11 +142,12 @@ class PouringStreamPainter extends CustomPainter {
   }) {
     final leftSide = <Offset>[];
     final rightSide = <Offset>[];
-    final baseWidth = 5.8 * widthMultiplier;
+    final distance = (points.last - points.first).distance;
+    final baseWidth = (4.8 + min(2.0, distance / 120)) * widthMultiplier;
 
     for (int i = 0; i < points.length; i++) {
       final t = i / max(1, points.length - 1);
-      final widthFactor = 0.2 + sin(t * pi) * 0.82;
+      final widthFactor = 0.22 + sin(t * pi) * 0.78;
       final halfWidth = baseWidth * widthFactor;
 
       Offset tangent;
@@ -149,7 +162,7 @@ class PouringStreamPainter extends CustomPainter {
       if (length == 0) continue;
 
       final normal = Offset(-tangent.dy / length, tangent.dx / length);
-      final flowDisplacement = sin((t * 7.5 * pi) + flowPhase) * 0.7;
+      final flowDisplacement = sin((t * 7.5 * pi) + flowPhase) * 0.6;
 
       leftSide.add(points[i] + normal * (halfWidth + flowDisplacement));
       rightSide.add(points[i] - normal * (halfWidth - flowDisplacement));
@@ -176,13 +189,13 @@ class PouringStreamPainter extends CustomPainter {
     return path;
   }
 
-  void _paintObjects(Canvas canvas, _CurveData curve) {
+  void _paintObjects(Canvas canvas, _CurveData curve, double streamOpacity) {
     const objectCount = 3;
     for (int i = 0; i < objectCount; i++) {
       final t = ((flowPhase * 1.4) + (i / objectCount)) % 1.0;
-      final visible = progress < 0.2
-          ? (progress / 0.2).clamp(0.0, 1.0)
-          : (progress > 0.85 ? ((1.0 - progress) / 0.15).clamp(0.0, 1.0) : 1.0);
+      final visible =
+          (progress < 0.2 ? (progress / 0.2).clamp(0.0, 1.0) : 1.0) *
+          streamOpacity;
       if (visible <= 0) continue;
 
       final oneMinusT = 1 - t;
@@ -294,6 +307,7 @@ class PouringStreamPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant PouringStreamPainter oldDelegate) {
     return oldDelegate.progress != progress ||
+        oldDelegate.opacity != opacity ||
         oldDelegate.flowPhase != flowPhase ||
         oldDelegate.start != start ||
         oldDelegate.end != end ||

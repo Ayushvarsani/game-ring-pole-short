@@ -573,6 +573,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           end: pourFrame.streamEnd,
                           color: state.animColor,
                           progress: pourFrame.streamProgress,
+                          opacity: pourFrame.streamOpacity,
                           flowPhase: _pourAnimation.controller.value * 8 * pi,
                           fillType: shopState.selectedFill,
                         ),
