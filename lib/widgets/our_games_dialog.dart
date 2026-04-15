@@ -330,23 +330,23 @@ class _FeaturedGameCardState extends State<_FeaturedGameCard>
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isActive
-                    ? Colors.white.withValues(alpha: 0.12)
-                    : Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(24),
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.045),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                   color: isActive
-                      ? theme.primaryAccent.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.08),
-                  width: 1.5,
+                      ? theme.primaryAccent.withValues(alpha: 0.34)
+                      : Colors.white.withValues(alpha: 0.06),
                 ),
                 boxShadow: isActive
                     ? [
                         BoxShadow(
-                          color: theme.primaryAccent.withValues(alpha: 0.2),
-                          blurRadius: 15,
+                          color: theme.primaryAccent.withValues(alpha: 0.16),
+                          blurRadius: 14,
+                          spreadRadius: -4,
                         ),
                       ]
                     : [],
@@ -354,8 +354,8 @@ class _FeaturedGameCardState extends State<_FeaturedGameCard>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 300;
-                  final artworkSize = compact ? 86.0 : 104.0;
-                  final contentGap = compact ? 14.0 : 18.0;
+                  final artworkSize = compact ? 94.0 : 108.0;
+                  final contentGap = compact ? 12.0 : 14.0;
 
                   return Row(
                     children: [
@@ -423,56 +423,40 @@ class _GameArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
 
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.1),
-            theme.primaryAccent.withValues(alpha: 0.08),
-            Colors.black.withValues(alpha: 0.34),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryAccent.withValues(alpha: 0.24),
-            blurRadius: 18,
-            spreadRadius: -3,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryAccent.withValues(alpha: 0.2),
+                    blurRadius: 22,
+                    spreadRadius: -12,
+                  ),
+                  BoxShadow(
+                    color: theme.goldAccent.withValues(alpha: 0.1),
+                    blurRadius: 16,
+                    spreadRadius: -14,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+            ),
           ),
-          BoxShadow(
-            color: theme.goldAccent.withValues(alpha: 0.12),
-            blurRadius: 14,
-            spreadRadius: -8,
-            offset: const Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.42),
-            blurRadius: 12,
-            spreadRadius: -4,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.22),
-          ),
-          child: Center(
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
             child: Image.asset(
               assetPath,
               fit: BoxFit.contain,
               alignment: Alignment.center,
+              width: size,
+              height: size,
               filterQuality: FilterQuality.high,
               gaplessPlayback: true,
               isAntiAlias: true,
@@ -490,7 +474,7 @@ class _GameArtwork extends StatelessWidget {
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
