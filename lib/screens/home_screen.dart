@@ -387,9 +387,9 @@ class _HomeViewportMetrics {
       outerPadding: width < 360 ? 12 : 16,
       topInset: compact ? 8 : 12,
       bottomInset: veryShort ? 10 : 14,
-      utilityGap: compact ? 10 : 12,
-      utilityIconSize: compact ? 17 : 19,
-      utilityPadding: compact ? 8 : 9,
+      utilityGap: compact ? 11 : 13,
+      utilityIconSize: compact ? 19 : 21,
+      utilityPadding: compact ? 9 : 10,
       brandGap: compact ? 18 : 24,
       logoHeight: (height * (veryShort ? 0.25 : (compact ? 0.27 : 0.29)))
           .clamp(160.0, 250.0)
@@ -697,8 +697,8 @@ class _UtilityCoinChip extends StatelessWidget {
       blurSigma: 14,
       highlighted: true,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
-        vertical: compact ? 8 : 9,
+        horizontal: compact ? 14 : 16,
+        vertical: compact ? 9 : 10,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
@@ -731,7 +731,7 @@ class _UtilityCoinChip extends StatelessWidget {
         children: [
           Icon(
             Icons.monetization_on_rounded,
-            size: compact ? 15 : 16,
+            size: compact ? 17 : 18,
             color: theme.goldAccent,
           ),
           const SizedBox(width: 6),
@@ -739,7 +739,7 @@ class _UtilityCoinChip extends StatelessWidget {
             '$coins',
             style: TextStyle(
               color: theme.textPrimary.withValues(alpha: 0.96),
-              fontSize: compact ? 12 : 13,
+              fontSize: compact ? 13 : 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
             ),
