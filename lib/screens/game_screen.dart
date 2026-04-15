@@ -1632,34 +1632,46 @@ class _WinDialogState extends State<_WinDialog>
               parent: _anim,
               curve: const Interval(0.6, 1.0),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _DoubleCoinsRewardCard(
-                  bonusCoins: widget.coinsEarned,
-                  claimed: _doubleCoinsClaimed,
-                  loading: _isClaimingDoubleCoins,
-                  message: _doubleCoinsMessage,
-                  messageIsError: _doubleCoinsMessageIsError,
-                  onTap: _doubleCoinsClaimed || _isClaimingDoubleCoins
-                      ? null
-                      : _handleDoubleCoinsTap,
+                Expanded(
+                  child: _WideButton(
+                    label: 'HOME',
+                    icon: Icons.home_rounded,
+                    tint: theme.primaryAccent,
+                    primary: false,
+                    height: 44,
+                    compact: true,
+                    onTap: _isClaimingDoubleCoins ? null : widget.onHome,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                _WideButton(
-                  label: 'CONTINUE',
-                  icon: Icons.arrow_forward_rounded,
-                  tint: theme.goldAccent,
-                  primary: true,
-                  onTap: _isClaimingDoubleCoins ? null : widget.onNext,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _WideButton(
+                    label: 'NEXT',
+                    icon: Icons.arrow_forward_rounded,
+                    tint: theme.goldAccent,
+                    primary: true,
+                    height: 44,
+                    compact: true,
+                    onTap: _isClaimingDoubleCoins ? null : widget.onNext,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _WideButton(
-                  label: 'MAIN MENU',
-                  icon: Icons.home_rounded,
-                  tint: theme.primaryAccent,
-                  primary: false,
-                  onTap: _isClaimingDoubleCoins ? null : widget.onHome,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DoubleCoinsRewardCard(
+                    bonusCoins: widget.coinsEarned,
+                    claimed: _doubleCoinsClaimed,
+                    loading: _isClaimingDoubleCoins,
+                    message: _doubleCoinsMessage,
+                    messageIsError: _doubleCoinsMessageIsError,
+                    height: 44,
+                    onTap: _doubleCoinsClaimed || _isClaimingDoubleCoins
+                        ? null
+                        : _handleDoubleCoinsTap,
+                  ),
                 ),
               ],
             ),
@@ -1677,16 +1689,55 @@ class _WinRewardSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 124, maxWidth: 148),
-        child: _StatCard(
-          icon: Icons.monetization_on_rounded,
-          label: 'COINS',
-          value: '+$coinsEarned',
-          tint: AppTheme.of(context).goldAccent,
-          compact: true,
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'COINS',
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 5),
+          ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              colors: [
+                Colors.white,
+                theme.goldAccent,
+                theme.warmAccent.withValues(alpha: 0.94),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ).createShader(bounds),
+            child: Text(
+              '+$coinsEarned',
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.2,
+                height: 0.95,
+                shadows: [
+                  Shadow(
+                    color: theme.goldAccent.withValues(alpha: 0.26),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1700,6 +1751,7 @@ class _DoubleCoinsRewardCard extends StatelessWidget {
     required this.message,
     required this.messageIsError,
     required this.onTap,
+    this.height = 50,
   });
 
   final int bonusCoins;
@@ -1708,158 +1760,133 @@ class _DoubleCoinsRewardCard extends StatelessWidget {
   final String? message;
   final bool messageIsError;
   final VoidCallback? onTap;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    final tint = claimed ? theme.successAccent : theme.warmAccent;
+    final hasErrorMessage = message != null && messageIsError;
+    final tint = claimed
+        ? theme.successAccent
+        : hasErrorMessage
+        ? theme.dangerAccent
+        : theme.warmAccent;
     final enabled = onTap != null && !claimed && !loading;
     final label = claimed
         ? '2x Coins Claimed'
         : loading
         ? 'OPENING AD'
         : 'WATCH AD';
-    final showErrorMessage = message != null && messageIsError;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 248),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GamePressable(
-              onTap: enabled ? onTap : null,
-              pressedScale: 0.97,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: enabled || claimed || loading ? 1 : 0.62,
-                child: Stack(
-                  clipBehavior: Clip.none,
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: GamePressable(
+        onTap: enabled ? onTap : null,
+        pressedScale: 0.97,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: enabled || claimed || loading ? 1 : 0.62,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                width: double.infinity,
+                height: height,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      tint.withValues(alpha: claimed ? 0.22 : 0.26),
+                      theme.surfaceStrong.withValues(alpha: 0.72),
+                      theme.surfaceMuted.withValues(alpha: 0.88),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: tint.withValues(alpha: claimed ? 0.36 : 0.28),
+                    width: 1.1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tint.withValues(alpha: claimed ? 0.18 : 0.14),
+                      blurRadius: 14,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    AnimatedContainer(
-                      width: double.infinity,
-                      height: showErrorMessage ? 58 : 50,
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            tint.withValues(alpha: claimed ? 0.22 : 0.26),
-                            theme.surfaceStrong.withValues(alpha: 0.72),
-                            theme.surfaceMuted.withValues(alpha: 0.88),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: tint.withValues(alpha: claimed ? 0.36 : 0.28),
-                          width: 1.1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tint.withValues(
-                              alpha: claimed ? 0.18 : 0.14,
-                            ),
-                            blurRadius: 18,
-                            spreadRadius: -8,
-                            offset: const Offset(0, 10),
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: tint.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: tint.withValues(alpha: 0.32),
                           ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: tint.withValues(alpha: 0.18),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: tint.withValues(alpha: 0.32),
-                              ),
-                            ),
-                            child: loading
-                                ? Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        tint,
-                                      ),
-                                    ),
-                                  )
-                                : Icon(
-                                    claimed
-                                        ? Icons.check_rounded
-                                        : Icons.play_circle_fill_rounded,
-                                    color: tint,
-                                    size: 20,
-                                  ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 180),
-                                  child: Text(
-                                    label,
-                                    key: ValueKey<String>(label),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: theme.textPrimary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.3,
-                                      height: 1.0,
-                                    ),
+                        ),
+                        child: loading
+                            ? Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.7,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    tint,
                                   ),
                                 ),
-                                if (showErrorMessage) ...[
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    message!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: theme.dangerAccent,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.1,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
+                              )
+                            : Icon(
+                                claimed
+                                    ? Icons.check_rounded
+                                    : Icons.play_circle_fill_rounded,
+                                color: tint,
+                                size: 16,
+                              ),
                       ),
                     ),
-                    if (!claimed)
-                      Positioned(
-                        top: -7,
-                        right: 10,
-                        child: _DoubleCoinsBonusBadge(
-                          bonusCoins: bonusCoins,
-                          tint: theme.goldAccent,
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Text(
+                          label,
+                          key: ValueKey<String>(label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                            height: 1.0,
+                          ),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              if (!claimed)
+                Positioned(
+                  top: -8,
+                  right: 4,
+                  child: _DoubleCoinsBonusBadge(
+                    bonusCoins: bonusCoins,
+                    tint: theme.goldAccent,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1876,33 +1903,36 @@ class _DoubleCoinsBonusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: tint.withValues(alpha: 0.34), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: tint.withValues(alpha: 0.18),
-            blurRadius: 10,
-            spreadRadius: -5,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-        child: Text(
-          '×2 +$bonusCoins',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-          style: TextStyle(
-            color: theme.textPrimary,
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.1,
-            height: 1.0,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 74),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: tint.withValues(alpha: 0.34), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: tint.withValues(alpha: 0.18),
+              blurRadius: 10,
+              spreadRadius: -5,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: Text(
+            '×2 +$bonusCoins',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.1,
+              height: 1.0,
+            ),
           ),
         ),
       ),
@@ -2457,23 +2487,18 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.tint,
-    this.compact = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color tint;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 5 : 6,
-        vertical: compact ? 5 : 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -2484,34 +2509,34 @@ class _StatCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: EdgeInsets.all(compact ? 4 : 6),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: tint, size: compact ? 12 : 14),
+            child: Icon(icon, color: tint, size: 14),
           ),
-          SizedBox(height: compact ? 3 : 10),
+          const SizedBox(height: 10),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: theme.textMuted,
-              fontSize: compact ? 9 : 10,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
               height: 1.0,
             ),
           ),
-          SizedBox(height: compact ? 2 : 6),
+          const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: theme.textPrimary,
-              fontSize: compact ? 16 : 18,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
               height: 1.0,
@@ -2530,6 +2555,8 @@ class _WideButton extends StatelessWidget {
     required this.tint,
     required this.primary,
     required this.onTap,
+    this.height = 54,
+    this.compact = false,
   });
 
   final String label;
@@ -2537,6 +2564,8 @@ class _WideButton extends StatelessWidget {
   final Color tint;
   final bool primary;
   final VoidCallback? onTap;
+  final double height;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2549,7 +2578,8 @@ class _WideButton extends StatelessWidget {
         opacity: enabled ? 1 : 0.46,
         child: Container(
           width: double.infinity,
-          height: 54,
+          height: height,
+          padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 0),
           decoration: BoxDecoration(
             gradient: primary
                 ? LinearGradient(
@@ -2573,9 +2603,9 @@ class _WideButton extends StatelessWidget {
                 ? [
                     BoxShadow(
                       color: tint.withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      spreadRadius: -2,
-                      offset: const Offset(0, 6),
+                      blurRadius: compact ? 12 : 16,
+                      spreadRadius: compact ? -5 : -2,
+                      offset: Offset(0, compact ? 5 : 6),
                     ),
                   ]
                 : null,
@@ -2586,16 +2616,22 @@ class _WideButton extends StatelessWidget {
               Icon(
                 icon,
                 color: primary ? Colors.white : theme.textPrimary,
-                size: 20,
+                size: compact ? 16 : 20,
               ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  color: primary ? Colors.white : theme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+              SizedBox(width: compact ? 5 : 10),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: primary ? Colors.white : theme.textPrimary,
+                    fontSize: compact ? 11 : 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: compact ? 0.2 : 0.5,
+                    height: 1.0,
+                  ),
                 ),
               ),
             ],
