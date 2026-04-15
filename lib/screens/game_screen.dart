@@ -1644,6 +1644,7 @@ class _WinDialogState extends State<_WinDialog>
                     primary: false,
                     height: 44,
                     compact: true,
+                    showIcon: false,
                     onTap: _isClaimingDoubleCoins ? null : widget.onHome,
                   ),
                 ),
@@ -1656,6 +1657,7 @@ class _WinDialogState extends State<_WinDialog>
                     primary: true,
                     height: 44,
                     compact: true,
+                    showIcon: false,
                     onTap: _isClaimingDoubleCoins ? null : widget.onNext,
                   ),
                 ),
@@ -1772,11 +1774,7 @@ class _DoubleCoinsRewardCard extends StatelessWidget {
         ? theme.dangerAccent
         : theme.warmAccent;
     final enabled = onTap != null && !claimed && !loading;
-    final label = claimed
-        ? '2x Coins Claimed'
-        : loading
-        ? 'OPENING AD'
-        : 'WATCH AD';
+    const label = 'WATCH AD';
     return SizedBox(
       width: double.infinity,
       height: height,
@@ -1823,37 +1821,6 @@ class _DoubleCoinsRewardCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: tint.withValues(alpha: 0.18),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: tint.withValues(alpha: 0.32),
-                          ),
-                        ),
-                        child: loading
-                            ? Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.7,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    tint,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                claimed
-                                    ? Icons.check_rounded
-                                    : Icons.play_circle_fill_rounded,
-                                color: tint,
-                                size: 16,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 5),
                     Flexible(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
@@ -2557,6 +2524,7 @@ class _WideButton extends StatelessWidget {
     required this.onTap,
     this.height = 54,
     this.compact = false,
+    this.showIcon = true,
   });
 
   final String label;
@@ -2566,6 +2534,7 @@ class _WideButton extends StatelessWidget {
   final VoidCallback? onTap;
   final double height;
   final bool compact;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -2613,12 +2582,14 @@ class _WideButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: primary ? Colors.white : theme.textPrimary,
-                size: compact ? 16 : 20,
-              ),
-              SizedBox(width: compact ? 5 : 10),
+              if (showIcon) ...[
+                Icon(
+                  icon,
+                  color: primary ? Colors.white : theme.textPrimary,
+                  size: compact ? 16 : 20,
+                ),
+                SizedBox(width: compact ? 5 : 10),
+              ],
               Flexible(
                 child: Text(
                   label,
