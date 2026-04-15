@@ -19,6 +19,15 @@ import '../widgets/banner_ad_widget.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
 
+enum _DoubleCoinsClaimResult {
+  claimed,
+  alreadyClaimed,
+  unavailable,
+  failedToShow,
+  closedWithoutReward,
+  rewardHandlerFailed,
+}
+
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
@@ -39,6 +48,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Set<int> _newlySolvedBottles = {};
   Set<int> _previouslySolvedBottles = {};
   Size _lastBottleSize = Size.zero;
+  int? _rewardCompletionLevel;
+  DateTime? _rewardCompletionStartedAt;
+  bool _baseRewardCreditedForCompletion = false;
+  bool _doubleCoinsClaimedForCompletion = false;
+  bool _doubleCoinsClaimInFlight = false;
 
   @override
   void initState() {
@@ -105,6 +119,105 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _wobbleController.dispose();
     _celebrationController.dispose();
     super.dispose();
+  }
+
+  void _prepareRewardCompletion(GameState state) {
+    if (_rewardCompletionLevel == state.level &&
+        _rewardCompletionStartedAt == state.levelStartTime) {
+      return;
+    }
+
+    _rewardCompletionLevel = state.level;
+    _rewardCompletionStartedAt = state.levelStartTime;
+    _baseRewardCreditedForCompletion = false;
+    _doubleCoinsClaimedForCompletion = false;
+    _doubleCoinsClaimInFlight = false;
+  }
+
+  bool _isCurrentRewardCompletion({
+    required int level,
+    required DateTime levelStartedAt,
+  }) {
+    return _rewardCompletionLevel == level &&
+        _rewardCompletionStartedAt == levelStartedAt;
+  }
+
+  Future<_DoubleCoinsClaimResult> _claimDoubleCoinsReward({
+    required BuildContext context,
+    required int level,
+    required DateTime levelStartedAt,
+    required int earnedCoins,
+  }) async {
+    if (!_isCurrentRewardCompletion(
+      level: level,
+      levelStartedAt: levelStartedAt,
+    )) {
+      return _DoubleCoinsClaimResult.failedToShow;
+    }
+    if (_doubleCoinsClaimedForCompletion) {
+      return _DoubleCoinsClaimResult.alreadyClaimed;
+    }
+    if (_doubleCoinsClaimInFlight) {
+      return _DoubleCoinsClaimResult.failedToShow;
+    }
+
+    _doubleCoinsClaimInFlight = true;
+    var bonusCredited = false;
+    final shopCubit = context.read<ShopCubit>();
+
+    final result = await AdService.instance.showRewardedAd(
+      onUserEarnedReward: (_) async {
+        if (!_isCurrentRewardCompletion(
+              level: level,
+              levelStartedAt: levelStartedAt,
+            ) ||
+            _doubleCoinsClaimedForCompletion) {
+          return;
+        }
+
+        await shopCubit.addCoins(earnedCoins);
+        _doubleCoinsClaimedForCompletion = true;
+        bonusCredited = true;
+      },
+    );
+
+    _doubleCoinsClaimInFlight = false;
+
+    return switch (result) {
+      RewardedAdShowResult.earned =>
+        bonusCredited
+            ? _DoubleCoinsClaimResult.claimed
+            : _DoubleCoinsClaimResult.rewardHandlerFailed,
+      RewardedAdShowResult.unavailable => _DoubleCoinsClaimResult.unavailable,
+      RewardedAdShowResult.failedToShow => _DoubleCoinsClaimResult.failedToShow,
+      RewardedAdShowResult.closedWithoutReward =>
+        _DoubleCoinsClaimResult.closedWithoutReward,
+      RewardedAdShowResult.rewardHandlerFailed =>
+        _DoubleCoinsClaimResult.rewardHandlerFailed,
+    };
+  }
+
+  Future<void> _handleLevelWon(BuildContext context, GameState state) async {
+    _prepareRewardCompletion(state);
+    final reward = CoinService.rewardForLevel(state.level);
+    final settingsCubit = context.read<SettingsCubit>();
+    final shopCubit = context.read<ShopCubit>();
+
+    settingsCubit.playWinSound();
+    settingsCubit.triggerHeavyHaptic();
+
+    if (!_baseRewardCreditedForCompletion) {
+      await shopCubit.addCoinsFromLevelReward(state.level);
+      _baseRewardCreditedForCompletion = true;
+    }
+
+    if (!context.mounted) return;
+    _showWinDialog(
+      context,
+      reward,
+      completedLevel: state.level,
+      levelStartedAt: state.levelStartTime,
+    );
   }
 
   void _startPourAnimation() {
@@ -190,11 +303,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           _startPourAnimation();
         }
         if (state.status == GameStatus.won) {
-          final reward = CoinService.rewardForLevel(state.level);
-          context.read<ShopCubit>().addCoinsFromLevelReward(state.level);
-          context.read<SettingsCubit>().playWinSound();
-          context.read<SettingsCubit>().triggerHeavyHaptic();
-          _showWinDialog(context, reward);
+          _handleLevelWon(context, state);
+          return;
         }
         if (state.status == GameStatus.gameOver) {
           context.read<SettingsCubit>().playFailSound();
@@ -228,10 +338,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final metrics = _GameScreenViewportMetrics.resolve(
-                                constraints,
-                              );
-      
+                              final metrics =
+                                  _GameScreenViewportMetrics.resolve(
+                                    constraints,
+                                  );
+
                               // The old screen felt stretched because the header and
                               // footer both used generous padding and tall cards,
                               // while the board itself sat inside a scroll view. This
@@ -243,7 +354,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                   _buildHeader(context, state, metrics),
                                   SizedBox(height: metrics.sectionSpacing),
                                   Expanded(
-                                    child: _buildBottleGrid(context, state, metrics),
+                                    child: _buildBottleGrid(
+                                      context,
+                                      state,
+                                      metrics,
+                                    ),
                                   ),
                                   SizedBox(height: metrics.sectionSpacing),
                                   _buildBottomBar(context, state, metrics),
@@ -646,8 +761,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             icon: Icons.lightbulb_outline_rounded,
             label: 'Hint',
             accentColor: theme.goldAccent,
-            onTap:
-                state.status == GameStatus.playing
+            onTap: state.status == GameStatus.playing
                 ? () {
                     context.read<SettingsCubit>().playClickSound();
                     context.read<SettingsCubit>().triggerLightHaptic();
@@ -738,14 +852,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showWinDialog(BuildContext context, int coinsEarned) {
-    final nextLevel = context.read<GameCubit>().state.level + 1;
+  void _showWinDialog(
+    BuildContext context,
+    int coinsEarned, {
+    required int completedLevel,
+    required DateTime levelStartedAt,
+  }) {
     _showOverlayDialog(
       context: context,
       barrierLabel: 'Level Complete',
       child: _WinDialog(
         coinsEarned: coinsEarned,
-        nextLevel: nextLevel,
+        doubleCoinsAlreadyClaimed: _doubleCoinsClaimedForCompletion,
+        onDoubleCoins: () => _claimDoubleCoinsReward(
+          context: context,
+          level: completedLevel,
+          levelStartedAt: levelStartedAt,
+          earnedCoins: coinsEarned,
+        ),
         onHome: () {
           Navigator.of(context).pop();
           Navigator.of(context).pop();
@@ -1114,13 +1238,15 @@ class _BottleGridMetrics {
 class _WinDialog extends StatefulWidget {
   const _WinDialog({
     required this.coinsEarned,
-    required this.nextLevel,
+    required this.doubleCoinsAlreadyClaimed,
+    required this.onDoubleCoins,
     required this.onHome,
     required this.onNext,
   });
 
   final int coinsEarned;
-  final int nextLevel;
+  final bool doubleCoinsAlreadyClaimed;
+  final Future<_DoubleCoinsClaimResult> Function() onDoubleCoins;
   final VoidCallback onHome;
   final VoidCallback onNext;
 
@@ -1131,10 +1257,15 @@ class _WinDialog extends StatefulWidget {
 class _WinDialogState extends State<_WinDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
+  late bool _doubleCoinsClaimed;
+  bool _isClaimingDoubleCoins = false;
+  String? _doubleCoinsMessage;
+  bool _doubleCoinsMessageIsError = false;
 
   @override
   void initState() {
     super.initState();
+    _doubleCoinsClaimed = widget.doubleCoinsAlreadyClaimed;
     _anim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -1147,9 +1278,54 @@ class _WinDialogState extends State<_WinDialog>
     super.dispose();
   }
 
+  Future<void> _handleDoubleCoinsTap() async {
+    if (_isClaimingDoubleCoins || _doubleCoinsClaimed) return;
+
+    setState(() {
+      _isClaimingDoubleCoins = true;
+      _doubleCoinsMessage = null;
+      _doubleCoinsMessageIsError = false;
+    });
+
+    final result = await widget.onDoubleCoins();
+    if (!mounted) return;
+
+    setState(() {
+      _isClaimingDoubleCoins = false;
+
+      switch (result) {
+        case _DoubleCoinsClaimResult.claimed:
+        case _DoubleCoinsClaimResult.alreadyClaimed:
+          _doubleCoinsClaimed = true;
+          _doubleCoinsMessage = '2x Coins Claimed';
+          _doubleCoinsMessageIsError = false;
+          break;
+        case _DoubleCoinsClaimResult.unavailable:
+          _doubleCoinsMessage = 'Ad unavailable. Try again soon.';
+          _doubleCoinsMessageIsError = true;
+          break;
+        case _DoubleCoinsClaimResult.failedToShow:
+          _doubleCoinsMessage = 'Ad could not start. Try again.';
+          _doubleCoinsMessageIsError = true;
+          break;
+        case _DoubleCoinsClaimResult.closedWithoutReward:
+          _doubleCoinsMessage = 'Finish the ad to claim 2x.';
+          _doubleCoinsMessageIsError = true;
+          break;
+        case _DoubleCoinsClaimResult.rewardHandlerFailed:
+          _doubleCoinsMessage = 'Reward could not be added. Try again.';
+          _doubleCoinsMessageIsError = true;
+          break;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+    final displayedCoins = _doubleCoinsClaimed
+        ? widget.coinsEarned * 2
+        : widget.coinsEarned;
 
     return GlassCard(
       tint: theme.goldAccent,
@@ -1198,9 +1374,9 @@ class _WinDialogState extends State<_WinDialog>
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 12),
 
-          // Stats Row
+          // Reward summary
           SlideTransition(
             position:
                 Tween<Offset>(
@@ -1217,39 +1393,20 @@ class _WinDialogState extends State<_WinDialog>
                 parent: _anim,
                 curve: const Interval(0.4, 0.9),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.monetization_on_rounded,
-                      label: 'COINS',
-                      value: '+${widget.coinsEarned}',
-                      tint: theme.goldAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.flag_rounded,
-                      label: 'LEVEL',
-                      value: '${widget.nextLevel - 1}',
-                      tint: theme.primaryAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.auto_awesome_rounded,
-                      label: 'NEXT LEVEL',
-                      value: '${widget.nextLevel}',
-                      tint: theme.secondaryAccent,
-                    ),
-                  ),
-                ],
+              child: _WinRewardSection(
+                coinsEarned: displayedCoins,
+                bonusCoins: widget.coinsEarned,
+                claimed: _doubleCoinsClaimed,
+                loading: _isClaimingDoubleCoins,
+                message: _doubleCoinsMessage,
+                messageIsError: _doubleCoinsMessageIsError,
+                onDoubleCoinsTap: _doubleCoinsClaimed || _isClaimingDoubleCoins
+                    ? null
+                    : _handleDoubleCoinsTap,
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 22),
 
           // Actions
           FadeTransition(
@@ -1265,7 +1422,7 @@ class _WinDialogState extends State<_WinDialog>
                   icon: Icons.arrow_forward_rounded,
                   tint: theme.goldAccent,
                   primary: true,
-                  onTap: widget.onNext,
+                  onTap: _isClaimingDoubleCoins ? null : widget.onNext,
                 ),
                 const SizedBox(height: 12),
                 _WideButton(
@@ -1273,12 +1430,224 @@ class _WinDialogState extends State<_WinDialog>
                   icon: Icons.home_rounded,
                   tint: theme.primaryAccent,
                   primary: false,
-                  onTap: widget.onHome,
+                  onTap: _isClaimingDoubleCoins ? null : widget.onHome,
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WinRewardSection extends StatelessWidget {
+  const _WinRewardSection({
+    required this.coinsEarned,
+    required this.bonusCoins,
+    required this.claimed,
+    required this.loading,
+    required this.message,
+    required this.messageIsError,
+    required this.onDoubleCoinsTap,
+  });
+
+  final int coinsEarned;
+  final int bonusCoins;
+  final bool claimed;
+  final bool loading;
+  final String? message;
+  final bool messageIsError;
+  final VoidCallback? onDoubleCoinsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final coinsCard = _StatCard(
+      icon: Icons.monetization_on_rounded,
+      label: 'COINS',
+      value: '+$coinsEarned',
+      tint: AppTheme.of(context).goldAccent,
+      compact: true,
+    );
+    final rewardCard = _DoubleCoinsRewardCard(
+      bonusCoins: bonusCoins,
+      claimed: claimed,
+      loading: loading,
+      message: message,
+      messageIsError: messageIsError,
+      onTap: onDoubleCoinsTap,
+    );
+
+    return SizedBox(
+      height: 64,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(flex: 8, child: coinsCard),
+          const SizedBox(width: 6),
+          Expanded(flex: 11, child: rewardCard),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoubleCoinsRewardCard extends StatelessWidget {
+  const _DoubleCoinsRewardCard({
+    required this.bonusCoins,
+    required this.claimed,
+    required this.loading,
+    required this.message,
+    required this.messageIsError,
+    required this.onTap,
+  });
+
+  final int bonusCoins;
+  final bool claimed;
+  final bool loading;
+  final String? message;
+  final bool messageIsError;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final tint = claimed ? theme.successAccent : theme.warmAccent;
+    final enabled = onTap != null && !claimed && !loading;
+    final statusText =
+        message ?? (claimed ? '2x Coins Claimed' : '+$bonusCoins bonus');
+    final statusColor = messageIsError
+        ? theme.dangerAccent
+        : claimed
+        ? theme.successAccent
+        : theme.goldAccent;
+
+    return GamePressable(
+      onTap: enabled ? onTap : null,
+      pressedScale: 0.97,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: enabled || claimed || loading ? 1 : 0.62,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                tint.withValues(alpha: claimed ? 0.22 : 0.28),
+                theme.surfaceStrong.withValues(alpha: 0.72),
+                theme.surfaceMuted.withValues(alpha: 0.9),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: tint.withValues(alpha: claimed ? 0.36 : 0.28),
+              width: 1.1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: tint.withValues(alpha: claimed ? 0.18 : 0.14),
+                blurRadius: 18,
+                spreadRadius: -8,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: tint.withValues(alpha: 0.32)),
+                ),
+                child: loading
+                    ? Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(tint),
+                        ),
+                      )
+                    : Icon(
+                        claimed
+                            ? Icons.check_rounded
+                            : Icons.play_circle_fill_rounded,
+                        color: tint,
+                        size: 20,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        claimed
+                            ? 'CLAIMED'
+                            : loading
+                            ? 'OPENING AD'
+                            : 'WATCH AD',
+                        key: ValueKey<String>(
+                          claimed
+                              ? 'claimed'
+                              : loading
+                              ? 'loading'
+                              : 'watch',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.7,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      claimed ? '2x Coins Claimed' : '×2 Coins',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.1,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1533,18 +1902,23 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.tint,
+    this.compact = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color tint;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 5 : 6,
+        vertical: compact ? 5 : 12,
+      ),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -1552,36 +1926,37 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: EdgeInsets.all(compact ? 4 : 6),
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: tint, size: 14),
+            child: Icon(icon, color: tint, size: compact ? 12 : 14),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 3 : 10),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: theme.textMuted,
-              fontSize: 10,
+              fontSize: compact ? 9 : 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
               height: 1.0,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: compact ? 2 : 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: theme.textPrimary,
-              fontSize: 18,
+              fontSize: compact ? 16 : 18,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
               height: 1.0,
@@ -1606,62 +1981,70 @@ class _WideButton extends StatelessWidget {
   final IconData icon;
   final Color tint;
   final bool primary;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+    final enabled = onTap != null;
     return GamePressable(
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 54,
-        decoration: BoxDecoration(
-          gradient: primary
-              ? LinearGradient(
-                  colors: [tint, Color.lerp(tint, theme.primaryAccent, 0.35)!],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: primary ? null : tint.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: primary
-                ? Colors.white.withValues(alpha: 0.2)
-                : tint.withValues(alpha: 0.3),
-            width: primary ? 1.0 : 1.5,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: enabled ? 1 : 0.46,
+        child: Container(
+          width: double.infinity,
+          height: 54,
+          decoration: BoxDecoration(
+            gradient: primary
+                ? LinearGradient(
+                    colors: [
+                      tint,
+                      Color.lerp(tint, theme.primaryAccent, 0.35)!,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: primary ? null : tint.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: primary
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : tint.withValues(alpha: 0.3),
+              width: primary ? 1.0 : 1.5,
+            ),
+            boxShadow: primary
+                ? [
+                    BoxShadow(
+                      color: tint.withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: primary
-              ? [
-                  BoxShadow(
-                    color: tint.withValues(alpha: 0.3),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: primary ? Colors.white : theme.textPrimary,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
                 color: primary ? Colors.white : theme.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
+                size: 20,
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: primary ? Colors.white : theme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

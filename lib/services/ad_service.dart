@@ -1,7 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+enum RewardedAdShowResult {
+  earned,
+  unavailable,
+  failedToShow,
+  closedWithoutReward,
+  rewardHandlerFailed,
+}
 
 class AdService {
   static final AdService instance = AdService._internal();
@@ -24,6 +33,8 @@ class AdService {
 
   int get freeHintsRemaining => _freeHintsRemaining;
 
+  bool get isRewardedAdReady => _rewardedAd != null;
+
   // Interstitial Ad Unit ID
   String get _interstitialAdUnitId {
     if (Platform.isAndroid) return 'ca-app-pub-3940256099942544/1033173712';
@@ -40,10 +51,10 @@ class AdService {
 
   Future<void> init() async {
     await MobileAds.instance.initialize();
-    
+
     // Load persisted local storage
     final prefs = await SharedPreferences.getInstance();
-    
+
     // if it's a first time user, this will default to 5
     _freeHintsRemaining = prefs.getInt(_kFreeHintsCount) ?? 5;
     _undoClickCount = prefs.getInt(_kUndoClickCount) ?? 0;
@@ -71,16 +82,18 @@ class AdService {
       _freeHintsRemaining--;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kFreeHintsCount, _freeHintsRemaining);
-      
+
       onHintGranted();
       return;
     }
 
     // Require Ad
     if (_rewardedAd != null) {
-      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-        onHintGranted(); // Granted
-      });
+      _rewardedAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          onHintGranted(); // Granted
+        },
+      );
       _rewardedAd = null;
       _loadRewardedAd(); // Load next
     } else {
@@ -97,7 +110,7 @@ class AdService {
 
   bool get requiresAdForUndo {
     // pattern: click 1->free, click 2->free, click 3->required ad.
-    // _undoClickCount keeps track of previous clicks. 
+    // _undoClickCount keeps track of previous clicks.
     // If previous clicks % 3 == 2, the current (next) click is the 3rd one.
     return (_undoClickCount % 3) == 2;
   }
@@ -123,9 +136,11 @@ class AdService {
 
     // Needs Ad
     if (_rewardedAd != null) {
-      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-        commitUndo();
-      });
+      _rewardedAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          commitUndo();
+        },
+      );
       _rewardedAd = null;
       _loadRewardedAd();
     } else {
@@ -135,13 +150,89 @@ class AdService {
     }
   }
 
+  Future<RewardedAdShowResult> showRewardedAd({
+    required Future<void> Function(RewardItem reward) onUserEarnedReward,
+  }) async {
+    final ad = _rewardedAd;
+    if (ad == null) {
+      _loadRewardedAd();
+      return RewardedAdShowResult.unavailable;
+    }
+
+    final completer = Completer<RewardedAdShowResult>();
+    var rewardEarned = false;
+    var disposed = false;
+    _rewardedAd = null;
+
+    void disposeAndReload() {
+      if (!disposed) {
+        ad.dispose();
+        disposed = true;
+      }
+      _loadRewardedAd();
+    }
+
+    void complete(RewardedAdShowResult result) {
+      if (!completer.isCompleted) {
+        completer.complete(result);
+      }
+    }
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (_) {
+        disposeAndReload();
+        if (!rewardEarned) {
+          complete(RewardedAdShowResult.closedWithoutReward);
+        }
+      },
+      onAdFailedToShowFullScreenContent: (_, error) {
+        disposeAndReload();
+        complete(RewardedAdShowResult.failedToShow);
+      },
+    );
+
+    try {
+      await ad.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          rewardEarned = true;
+          Future<void>.sync(() => onUserEarnedReward(reward))
+              .then((_) {
+                complete(RewardedAdShowResult.earned);
+              })
+              .catchError((Object error, StackTrace stackTrace) {
+                FlutterError.reportError(
+                  FlutterErrorDetails(
+                    exception: error,
+                    stack: stackTrace,
+                    library: 'ad_service',
+                    context: ErrorDescription('handling rewarded ad reward'),
+                  ),
+                );
+                complete(RewardedAdShowResult.rewardHandlerFailed);
+              });
+        },
+      );
+    } catch (error, stackTrace) {
+      disposeAndReload();
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'ad_service',
+          context: ErrorDescription('showing rewarded ad'),
+        ),
+      );
+      complete(RewardedAdShowResult.failedToShow);
+    }
+
+    return completer.future;
+  }
+
   /// ---------------------------------------------------------
   /// INTERSTITIAL LOGIC (Level Completion)
   /// ---------------------------------------------------------
 
-  Future<void> handleLevelCompleted({
-    required VoidCallback onContinue,
-  }) async {
+  Future<void> handleLevelCompleted({required VoidCallback onContinue}) async {
     _completedLevelsCount++;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kCompletedLevelsAdsCount, _completedLevelsCount);
@@ -169,7 +260,7 @@ class AdService {
         _loadInterstitialAd();
       }
     }
-    
+
     // Not a multiple of 2 or ad not loaded
     onContinue();
   }
@@ -207,7 +298,7 @@ class AdService {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           _rewardedAd = ad;
-          
+
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
               ad.dispose();
@@ -220,7 +311,7 @@ class AdService {
               _loadRewardedAd();
             },
           );
-          
+
           _isRewardedAdLoading = false;
         },
         onAdFailedToLoad: (error) {

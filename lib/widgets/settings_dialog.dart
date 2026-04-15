@@ -37,12 +37,6 @@ class SettingsDialog extends StatelessWidget {
     }
   }
 
-  void _toggleMusic(BuildContext context, bool enabled) {
-    final cubit = context.read<SettingsCubit>();
-    cubit.playClickSound();
-    cubit.toggleMusic(enabled);
-  }
-
   void _toggleVibration(BuildContext context, bool enabled) {
     final cubit = context.read<SettingsCubit>();
     cubit.playClickSound();
@@ -105,7 +99,10 @@ class SettingsDialog extends StatelessWidget {
     );
 
     try {
-      if (!await launchUrl(emailLaunchUri, mode: LaunchMode.externalApplication)) {
+      if (!await launchUrl(
+        emailLaunchUri,
+        mode: LaunchMode.externalApplication,
+      )) {
         if (context.mounted) {
           _showNotice(context, 'Could not open email app.');
         }
@@ -119,8 +116,10 @@ class SettingsDialog extends StatelessWidget {
 
   String? _encodeQueryParameters(Map<String, String> params) {
     return params.entries
-        .map((MapEntry<String, String> e) =>
-            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .map(
+          (MapEntry<String, String> e) =>
+              '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',
+        )
         .join('&');
   }
 
@@ -150,7 +149,7 @@ class SettingsDialog extends StatelessWidget {
     const horizontalPadding = 16.0;
     const topPadding = 14.0;
     const bottomPadding = 14.0;
-    const rowGap = 10.0; // consistent rhythm: same as between Sound/Music/Vib
+    const rowGap = 10.0; // consistent rhythm between settings rows
     const actionStripHeight = 52.0;
 
     final shareTint = Color.lerp(
@@ -183,20 +182,6 @@ class SettingsDialog extends StatelessWidget {
                 value: state.soundEnabled,
                 tint: theme.ambientGlow,
                 onChanged: (value) => _toggleSound(context, value),
-              ),
-            ),
-            _SettingsEntry(
-              icon: state.musicEnabled
-                  ? Icons.graphic_eq_rounded
-                  : Icons.music_off_rounded,
-              tint: theme.secondaryAccent,
-              title: 'Music',
-              subtitle: 'Background game music',
-              onTap: () => _toggleMusic(context, !state.musicEnabled),
-              trailing: _PremiumSettingsToggle(
-                value: state.musicEnabled,
-                tint: theme.secondaryAccent,
-                onChanged: (value) => _toggleMusic(context, value),
               ),
             ),
             _SettingsEntry(
@@ -278,21 +263,13 @@ class SettingsDialog extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color.lerp(
-                            theme.surfaceStrong,
-                            Colors.white,
-                            0.04,
-                          )!,
+                          Color.lerp(theme.surfaceStrong, Colors.white, 0.04)!,
                           Color.lerp(
                             theme.surface,
                             theme.backgroundDark,
                             0.22,
                           )!,
-                          Color.lerp(
-                            theme.backgroundDeep,
-                            Colors.black,
-                            0.05,
-                          )!,
+                          Color.lerp(theme.backgroundDeep, Colors.black, 0.05)!,
                         ],
                         stops: const [0.0, 0.58, 1.0],
                       ),
@@ -348,9 +325,7 @@ class SettingsDialog extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (i > 0) ...[
-                                      _SettingsSeparator(
-                                        tint: entry.tint,
-                                      ),
+                                      _SettingsSeparator(tint: entry.tint),
                                     ],
                                     _SettingsOptionRow(
                                       height: rowHeight,
@@ -388,8 +363,7 @@ class SettingsDialog extends StatelessWidget {
                                         icon: Icons.forum_rounded,
                                         label: 'Feedback',
                                         tint: feedbackTint,
-                                        onTap: () =>
-                                            _handleFeedback(context),
+                                        onTap: () => _handleFeedback(context),
                                       ),
                                     ),
                                     _SettingsActionDivider(
@@ -397,13 +371,11 @@ class SettingsDialog extends StatelessWidget {
                                     ),
                                     Expanded(
                                       child: _SettingsActionButton(
-                                        icon:
-                                            Icons.power_settings_new_rounded,
+                                        icon: Icons.power_settings_new_rounded,
                                         label: 'Quit Game',
                                         tint: quitTint,
                                         emphasized: true,
-                                        onTap: () =>
-                                            _handleQuitGame(context),
+                                        onTap: () => _handleQuitGame(context),
                                       ),
                                     ),
                                   ],
@@ -467,15 +439,11 @@ class _SettingsActionButton extends StatelessWidget {
                 ],
               ),
               border: Border.all(
-                color: Colors.white.withValues(
-                  alpha: emphasized ? 0.16 : 0.09,
-                ),
+                color: Colors.white.withValues(alpha: emphasized ? 0.16 : 0.09),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: tint.withValues(
-                    alpha: emphasized ? 0.18 : 0.10,
-                  ),
+                  color: tint.withValues(alpha: emphasized ? 0.18 : 0.10),
                   blurRadius: 14,
                   spreadRadius: -8,
                 ),
@@ -510,9 +478,7 @@ class _SettingsActionButton extends StatelessWidget {
                 Center(
                   child: Icon(
                     icon,
-                    color: tint.withValues(
-                      alpha: emphasized ? 1.0 : 0.92,
-                    ),
+                    color: tint.withValues(alpha: emphasized ? 1.0 : 0.92),
                     size: 18,
                   ),
                 ),
@@ -757,10 +723,7 @@ class _SettingsOptionRow extends StatelessWidget {
               const SizedBox(width: 10),
               SizedBox(
                 width: 56,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: trailing,
-                ),
+                child: Align(alignment: Alignment.centerRight, child: trailing),
               ),
             ],
           ),
@@ -909,8 +872,7 @@ class _PremiumSettingsToggle extends StatelessWidget {
               AnimatedAlign(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeInOut,
-                alignment:
-                    value ? Alignment.centerRight : Alignment.centerLeft,
+                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
                   width: 19,
                   height: 19,

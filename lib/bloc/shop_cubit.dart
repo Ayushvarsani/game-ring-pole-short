@@ -168,11 +168,16 @@ class ShopCubit extends Cubit<ShopState> {
     );
   }
 
-  /// Awards coins for completing a level (persists + updates state).
-  Future<void> addCoinsFromLevelReward(int level) async {
-    final amount = CoinService.rewardForLevel(level);
+  /// Adds coins to the wallet (persists + updates state).
+  Future<int> addCoins(int amount) async {
     final newTotal = await CoinService.addCoins(amount);
     emit(state.copyWith(coins: newTotal));
+    return newTotal;
+  }
+
+  /// Awards coins for completing a level (persists + updates state).
+  Future<int> addCoinsFromLevelReward(int level) {
+    return addCoins(CoinService.rewardForLevel(level));
   }
 
   /// Select a bottle if unlocked, or purchase if the player has enough coins.
