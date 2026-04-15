@@ -8,7 +8,7 @@ import '../painters/liquid_painter.dart';
 class PourAnimationController {
   PourAnimationController({
     required TickerProvider vsync,
-    this.duration = const Duration(milliseconds: 1040),
+    this.duration = const Duration(milliseconds: 1200),
   }) : controller = AnimationController(vsync: vsync, duration: duration) {
     travel = TweenSequence<double>([
       TweenSequenceItem(
