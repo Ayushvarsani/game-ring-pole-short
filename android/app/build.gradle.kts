@@ -1,9 +1,69 @@
+import org.gradle.api.GradleException
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+fun decodeDartDefines(): Map<String, String> {
+    val encodedDefines = project.findProperty("dart-defines") as? String ?: return emptyMap()
+    return encodedDefines
+        .split(",")
+        .filter { it.isNotBlank() }
+        .mapNotNull { encoded ->
+            runCatching {
+                String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            }.getOrNull()
+        }
+        .mapNotNull { entry ->
+            val separatorIndex = entry.indexOf("=")
+            if (separatorIndex <= 0) {
+                null
+            } else {
+                entry.substring(0, separatorIndex) to entry.substring(separatorIndex + 1)
+            }
+        }
+        .toMap()
+}
+
+fun loadEnvConfig(fileName: String): Map<String, String> {
+    val envFile = rootProject.file("../$fileName")
+    if (!envFile.exists()) return emptyMap()
+
+    return envFile
+        .readLines()
+        .mapNotNull { rawLine ->
+            val line = rawLine.trim()
+            if (line.isEmpty() || line.startsWith("#") || !line.contains("=")) {
+                null
+            } else {
+                val key = line.substringBefore("=").trim()
+                val value = line
+                    .substringAfter("=")
+                    .trim()
+                    .trim('"', '\'')
+                key to value
+            }
+        }
+        .toMap()
+}
+
+val dartDefines = decodeDartDefines()
+val selectedEnvFile =
+    (project.findProperty("ENV") as? String)?.takeIf { it.isNotBlank() }
+        ?: dartDefines["ENV"]?.takeIf { it.isNotBlank() }
+        ?: System.getenv("ENV")?.takeIf { it.isNotBlank() }
+        ?: ".env"
+val envConfig = loadEnvConfig(selectedEnvFile)
+val admobAppEnv = envConfig["APP_ENV"]?.lowercase() ?: "dev"
+val admobAppIdAndroid = envConfig["ADMOB_APP_ID_ANDROID"]
+    ?: throw GradleException(
+        "Missing ADMOB_APP_ID_ANDROID in $selectedEnvFile. " +
+            "APP_ENV=$admobAppEnv will not fall back to a test AdMob app ID."
+    )
 
 android {
     namespace = "com.example.color_short"
@@ -28,6 +88,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["admobAppIdAndroid"] = admobAppIdAndroid
     }
 
     buildTypes {

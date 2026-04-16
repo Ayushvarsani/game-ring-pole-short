@@ -1,8 +1,11 @@
 import 'dart:async';
-import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../config/app_config.dart';
+import 'ad_mob_logger.dart';
 
 enum RewardedAdShowResult {
   earned,
@@ -35,22 +38,50 @@ class AdService {
 
   bool get isRewardedAdReady => _rewardedAd != null;
 
-  // Interstitial Ad Unit ID
-  String get _interstitialAdUnitId {
-    if (Platform.isAndroid) return 'ca-app-pub-3940256099942544/1033173712';
-    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/4411468910';
-    return '';
-  }
+  AdMobConfig get _adMobConfig => AdMobConfig.current;
 
-  // Rewarded Ad Unit ID
-  String get _rewardedAdUnitId {
-    if (Platform.isAndroid) return 'ca-app-pub-3940256099942544/5224354917';
-    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/1712485313';
-    return '';
-  }
+  String get _interstitialAdUnitId => _adMobConfig.interstitialAdUnitId;
+
+  String get _rewardedAdUnitId => _adMobConfig.rewardedAdUnitId;
 
   Future<void> init() async {
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(testDeviceIds: _adMobConfig.testDeviceIds),
+      );
+      AdMobLogger.requestConfigurationApplied(
+        testDeviceModeEnabled: _adMobConfig.testDeviceModeEnabled,
+        testDeviceIds: _adMobConfig.testDeviceIds,
+      );
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'ad_service',
+          context: ErrorDescription('applying Mobile Ads request config'),
+        ),
+      );
+      _logAdMessage('RequestConfiguration failed: $error');
+    }
+
+    var mobileAdsInitialized = false;
+    try {
+      final initializationStatus = await MobileAds.instance.initialize();
+      mobileAdsInitialized = true;
+      AdMobLogger.mobileAdsInitialized(initializationStatus);
+      _logAdMobStartup();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'ad_service',
+          context: ErrorDescription('initializing Mobile Ads SDK'),
+        ),
+      );
+      _logAdMessage('Mobile Ads SDK initialization failed: $error');
+    }
 
     // Load persisted local storage
     final prefs = await SharedPreferences.getInstance();
@@ -61,8 +92,12 @@ class AdService {
     _completedLevelsCount = prefs.getInt(_kCompletedLevelsAdsCount) ?? 0;
 
     // Preload ads
-    _loadInterstitialAd();
-    _loadRewardedAd();
+    if (mobileAdsInitialized) {
+      _loadInterstitialAd();
+      _loadRewardedAd();
+    } else {
+      AdMobLogger.skipped('Ad preload skipped because Mobile Ads init failed.');
+    }
   }
 
   /// ---------------------------------------------------------
@@ -87,21 +122,20 @@ class AdService {
       return;
     }
 
-    // Require Ad
-    if (_rewardedAd != null) {
-      _rewardedAd!.show(
-        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-          onHintGranted(); // Granted
-        },
-      );
-      _rewardedAd = null;
-      _loadRewardedAd(); // Load next
-    } else {
-      // Ad not ready or failed to load.
-      // Gracefully just give the hint without blocking.
+    final result = await showRewardedAd(
+      onUserEarnedReward: (_) async {
+        _logAdMessage('Rewarded hint ad earned reward.');
+        onHintGranted();
+      },
+    );
+
+    if (result == RewardedAdShowResult.unavailable) {
+      _logAdMessage('Rewarded hint ad unavailable; granting hint fallback.');
       onHintGranted();
-      _loadRewardedAd();
+      return;
     }
+
+    if (result != RewardedAdShowResult.earned) onAdFailed();
   }
 
   /// ---------------------------------------------------------
@@ -134,20 +168,20 @@ class AdService {
       return;
     }
 
-    // Needs Ad
-    if (_rewardedAd != null) {
-      _rewardedAd!.show(
-        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-          commitUndo();
-        },
-      );
-      _rewardedAd = null;
-      _loadRewardedAd();
-    } else {
-      // Graceful fallback
-      commitUndo();
-      _loadRewardedAd();
+    final result = await showRewardedAd(
+      onUserEarnedReward: (_) async {
+        _logAdMessage('Rewarded undo ad earned reward.');
+        await commitUndo();
+      },
+    );
+
+    if (result == RewardedAdShowResult.unavailable) {
+      _logAdMessage('Rewarded undo ad unavailable; granting undo fallback.');
+      await commitUndo();
+      return;
     }
+
+    if (result != RewardedAdShowResult.earned) onAdFailed();
   }
 
   Future<RewardedAdShowResult> showRewardedAd({
@@ -155,6 +189,7 @@ class AdService {
   }) async {
     final ad = _rewardedAd;
     if (ad == null) {
+      _logAdMessage('Rewarded ad requested but not loaded.');
       _loadRewardedAd();
       return RewardedAdShowResult.unavailable;
     }
@@ -178,22 +213,59 @@ class AdService {
       }
     }
 
+    ad.onPaidEvent = (ad, valueMicros, precision, currencyCode) {
+      AdMobLogger.paidEvent(
+        format: 'Rewarded',
+        ad: ad,
+        valueMicros: valueMicros,
+        precision: precision,
+        currencyCode: currencyCode,
+      );
+    };
+
     ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (_) {
+        AdMobLogger.lifecycle('Rewarded ad showed. adUnitId=${ad.adUnitId}');
+      },
+      onAdImpression: (_) {
+        AdMobLogger.lifecycle(
+          'Rewarded ad impression. adUnitId=${ad.adUnitId}',
+        );
+      },
+      onAdClicked: (_) {
+        AdMobLogger.lifecycle('Rewarded ad clicked. adUnitId=${ad.adUnitId}');
+      },
+      onAdWillDismissFullScreenContent: (_) {
+        AdMobLogger.lifecycle(
+          'Rewarded ad will dismiss. adUnitId=${ad.adUnitId}',
+        );
+      },
       onAdDismissedFullScreenContent: (_) {
+        AdMobLogger.lifecycle('Rewarded ad dismissed. adUnitId=${ad.adUnitId}');
         disposeAndReload();
         if (!rewardEarned) {
           complete(RewardedAdShowResult.closedWithoutReward);
         }
       },
       onAdFailedToShowFullScreenContent: (_, error) {
+        AdMobLogger.showFailed(
+          format: 'Rewarded',
+          adUnitId: ad.adUnitId,
+          error: error,
+        );
         disposeAndReload();
         complete(RewardedAdShowResult.failedToShow);
       },
     );
 
     try {
+      AdMobLogger.showStarted(format: 'Rewarded', adUnitId: ad.adUnitId);
       await ad.show(
         onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          _logAdMessage(
+            'Rewarded ad earned reward. amount=${reward.amount}, '
+            'type=${reward.type}',
+          );
           rewardEarned = true;
           Future<void>.sync(() => onUserEarnedReward(reward))
               .then((_) {
@@ -238,25 +310,64 @@ class AdService {
     await prefs.setInt(_kCompletedLevelsAdsCount, _completedLevelsCount);
 
     if (_completedLevelsCount % 2 == 0) {
-      if (_interstitialAd != null) {
-        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      final ad = _interstitialAd;
+      if (ad != null) {
+        _interstitialAd = null;
+        ad.onPaidEvent = (ad, valueMicros, precision, currencyCode) {
+          AdMobLogger.paidEvent(
+            format: 'Interstitial',
+            ad: ad,
+            valueMicros: valueMicros,
+            precision: precision,
+            currencyCode: currencyCode,
+          );
+        };
+        ad.fullScreenContentCallback = FullScreenContentCallback(
+          onAdShowedFullScreenContent: (ad) {
+            AdMobLogger.lifecycle(
+              'Interstitial ad showed. adUnitId=${ad.adUnitId}',
+            );
+          },
+          onAdImpression: (ad) {
+            AdMobLogger.lifecycle(
+              'Interstitial ad impression. adUnitId=${ad.adUnitId}',
+            );
+          },
+          onAdClicked: (ad) {
+            AdMobLogger.lifecycle(
+              'Interstitial ad clicked. adUnitId=${ad.adUnitId}',
+            );
+          },
+          onAdWillDismissFullScreenContent: (ad) {
+            AdMobLogger.lifecycle(
+              'Interstitial ad will dismiss. adUnitId=${ad.adUnitId}',
+            );
+          },
           onAdDismissedFullScreenContent: (ad) {
+            AdMobLogger.lifecycle(
+              'Interstitial ad dismissed. adUnitId=${ad.adUnitId}',
+            );
             ad.dispose();
-            _interstitialAd = null;
             _loadInterstitialAd();
             onContinue();
           },
           onAdFailedToShowFullScreenContent: (ad, error) {
+            AdMobLogger.showFailed(
+              format: 'Interstitial',
+              adUnitId: ad.adUnitId,
+              error: error,
+            );
             ad.dispose();
-            _interstitialAd = null;
             _loadInterstitialAd();
             onContinue();
           },
         );
-        _interstitialAd!.show();
+        AdMobLogger.showStarted(format: 'Interstitial', adUnitId: ad.adUnitId);
+        ad.show();
         return; // the callback handles 'onContinue'
       } else {
         // Fallback
+        _logAdMessage('Interstitial ad requested but not loaded.');
         _loadInterstitialAd();
       }
     }
@@ -271,17 +382,44 @@ class AdService {
 
   void _loadInterstitialAd() {
     if (_isInterstitialAdLoading) return;
+    if (_interstitialAd != null) {
+      AdMobLogger.skipped('Interstitial ad load skipped: ad already loaded.');
+      return;
+    }
+    final adUnitId = _interstitialAdUnitId;
+    if (adUnitId.isEmpty) {
+      AdMobLogger.skipped(
+        'Interstitial ad skipped: ADMOB_INTERSTITIAL_ID is empty.',
+      );
+      return;
+    }
     _isInterstitialAdLoading = true;
+    AdMobLogger.loadStarted(format: 'Interstitial', adUnitId: adUnitId);
 
     InterstitialAd.load(
-      adUnitId: _interstitialAdUnitId,
+      adUnitId: adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          ad.onPaidEvent = (ad, valueMicros, precision, currencyCode) {
+            AdMobLogger.paidEvent(
+              format: 'Interstitial',
+              ad: ad,
+              valueMicros: valueMicros,
+              precision: precision,
+              currencyCode: currencyCode,
+            );
+          };
           _interstitialAd = ad;
+          AdMobLogger.loadSucceeded(format: 'Interstitial', ad: ad);
           _isInterstitialAdLoading = false;
         },
         onAdFailedToLoad: (error) {
+          AdMobLogger.loadFailed(
+            format: 'Interstitial',
+            adUnitId: adUnitId,
+            error: error,
+          );
           _isInterstitialAdLoading = false;
         },
       ),
@@ -290,22 +428,75 @@ class AdService {
 
   void _loadRewardedAd() {
     if (_isRewardedAdLoading) return;
+    if (_rewardedAd != null) {
+      AdMobLogger.skipped('Rewarded ad load skipped: ad already loaded.');
+      return;
+    }
+    final adUnitId = _rewardedAdUnitId;
+    if (adUnitId.isEmpty) {
+      AdMobLogger.skipped('Rewarded ad skipped: ADMOB_REWARDED_ID is empty.');
+      return;
+    }
     _isRewardedAdLoading = true;
+    AdMobLogger.loadStarted(format: 'Rewarded', adUnitId: adUnitId);
 
     RewardedAd.load(
-      adUnitId: _rewardedAdUnitId,
+      adUnitId: adUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          ad.onPaidEvent = (ad, valueMicros, precision, currencyCode) {
+            AdMobLogger.paidEvent(
+              format: 'Rewarded',
+              ad: ad,
+              valueMicros: valueMicros,
+              precision: precision,
+              currencyCode: currencyCode,
+            );
+          };
           _rewardedAd = ad;
+          AdMobLogger.loadSucceeded(format: 'Rewarded', ad: ad);
 
           ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (ad) {
+              AdMobLogger.lifecycle(
+                'Rewarded ad showed before show handler. '
+                'adUnitId=${ad.adUnitId}',
+              );
+            },
+            onAdImpression: (ad) {
+              AdMobLogger.lifecycle(
+                'Rewarded ad impression before show handler. '
+                'adUnitId=${ad.adUnitId}',
+              );
+            },
+            onAdClicked: (ad) {
+              AdMobLogger.lifecycle(
+                'Rewarded ad clicked before show handler. '
+                'adUnitId=${ad.adUnitId}',
+              );
+            },
+            onAdWillDismissFullScreenContent: (ad) {
+              AdMobLogger.lifecycle(
+                'Rewarded ad will dismiss before show handler. '
+                'adUnitId=${ad.adUnitId}',
+              );
+            },
             onAdDismissedFullScreenContent: (ad) {
+              AdMobLogger.lifecycle(
+                'Rewarded ad dismissed before show handler. '
+                'adUnitId=${ad.adUnitId}',
+              );
               ad.dispose();
               _rewardedAd = null;
               _loadRewardedAd();
             },
             onAdFailedToShowFullScreenContent: (ad, error) {
+              AdMobLogger.showFailed(
+                format: 'Rewarded',
+                adUnitId: ad.adUnitId,
+                error: error,
+              );
               ad.dispose();
               _rewardedAd = null;
               _loadRewardedAd();
@@ -315,9 +506,25 @@ class AdService {
           _isRewardedAdLoading = false;
         },
         onAdFailedToLoad: (error) {
+          AdMobLogger.loadFailed(
+            format: 'Rewarded',
+            adUnitId: adUnitId,
+            error: error,
+          );
           _isRewardedAdLoading = false;
         },
       ),
     );
+  }
+
+  void _logAdMobStartup() {
+    _logAdMessage(
+      'Initialized. APP_ENV=${_adMobConfig.appEnv}, '
+      'testDeviceModeEnabled=${_adMobConfig.testDeviceModeEnabled}',
+    );
+  }
+
+  void _logAdMessage(String message) {
+    debugPrint('[AdService] $message');
   }
 }

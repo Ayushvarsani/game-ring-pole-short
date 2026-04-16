@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/settings_cubit.dart';
 import 'bloc/shop_cubit.dart';
 import 'bloc/shop_state.dart';
+import 'config/app_config.dart';
 import 'screens/splash_screen.dart';
 import 'services/ad_service.dart';
 import 'theme/app_theme.dart';
@@ -13,6 +14,7 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await AppConfig.load();
   await AdService.instance.init();
 
   // Lock to portrait mode for optimal gameplay
