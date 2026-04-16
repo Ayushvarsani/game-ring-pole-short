@@ -4,7 +4,9 @@ import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.initialRoute});
+
+  final String? initialRoute;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -33,7 +35,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 1. App loading simulation with natural easing
     _progressController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 3200));
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    );
 
     _progressCurve = CurvedAnimation(
       parent: _progressController,
@@ -46,17 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _progressController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const HomeScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        _openInitialRoute();
       }
     });
 
@@ -113,6 +107,25 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  void _openInitialRoute() {
+    final route = widget.initialRoute;
+    if (route != null && route != '/home') {
+      Navigator.of(context).pushReplacementNamed(route);
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const HomeScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -124,7 +137,10 @@ class _SplashScreenState extends State<SplashScreen>
       radius: 1.2,
       colors: [
         Color.lerp(
-            theme.primaryAccent, theme.backgroundGradient.colors.first, 0.8)!,
+          theme.primaryAccent,
+          theme.backgroundGradient.colors.first,
+          0.8,
+        )!,
         theme.backgroundGradient.colors.last,
         const Color(0xFF03010B), // Hard vignette edge
       ],
@@ -182,7 +198,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   boxShadow: [
                                     BoxShadow(
                                       color: theme.primaryAccent.withValues(
-                                        alpha: 0.15 +
+                                        alpha:
+                                            0.15 +
                                             (_pulseController.value * 0.15),
                                       ),
                                       blurRadius: 80,
@@ -190,7 +207,8 @@ class _SplashScreenState extends State<SplashScreen>
                                     ),
                                     BoxShadow(
                                       color: theme.secondaryAccent.withValues(
-                                        alpha: 0.08 +
+                                        alpha:
+                                            0.08 +
                                             (_pulseController.value * 0.05),
                                       ),
                                       blurRadius: 100,
@@ -216,10 +234,8 @@ class _SplashScreenState extends State<SplashScreen>
                                     gradient: SweepGradient(
                                       colors: [
                                         Colors.transparent,
-                                        theme.goldAccent
-                                            .withValues(alpha: 0.0),
-                                        theme.goldAccent
-                                            .withValues(alpha: 0.3),
+                                        theme.goldAccent.withValues(alpha: 0.0),
+                                        theme.goldAccent.withValues(alpha: 0.3),
                                         Colors.transparent,
                                       ],
                                       stops: const [0.0, 0.4, 0.5, 0.6],
@@ -264,8 +280,10 @@ class _SplashScreenState extends State<SplashScreen>
                         children: [
                           // Dynamic glowing progress bar
                           AnimatedBuilder(
-                            animation: Listenable.merge(
-                                [_progressController, _sweepController]),
+                            animation: Listenable.merge([
+                              _progressController,
+                              _sweepController,
+                            ]),
                             builder: (context, _) {
                               final progress = _progressCurve.value;
                               return Container(
@@ -310,20 +328,22 @@ class _SplashScreenState extends State<SplashScreen>
                                                     0.0,
                                                     0.4,
                                                     0.7,
-                                                    1.0
+                                                    1.0,
                                                   ],
                                                   // Animate the gradient laterally
                                                   transform: GradientRotation(
-                                                      _sweepController.value *
-                                                          2 *
-                                                          pi),
+                                                    _sweepController.value *
+                                                        2 *
+                                                        pi,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
                                           // Shimmer highlight sweeping across the filled portion
                                           Positioned(
-                                            left: -constraints.maxWidth +
+                                            left:
+                                                -constraints.maxWidth +
                                                 (fillWidth +
                                                         constraints.maxWidth) *
                                                     _sweepController.value,
@@ -334,12 +354,15 @@ class _SplashScreenState extends State<SplashScreen>
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    Colors.white
-                                                        .withValues(alpha: 0.0),
-                                                    Colors.white
-                                                        .withValues(alpha: 0.5),
-                                                    Colors.white
-                                                        .withValues(alpha: 0.0),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.0,
+                                                    ),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.0,
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -358,15 +381,19 @@ class _SplashScreenState extends State<SplashScreen>
                           Text(
                             '${(_progressCurve.value * 100).toInt()}%',
                             style: TextStyle(
-                              color: Color.lerp(theme.textMuted,
-                                  theme.textPrimary, _progressCurve.value),
+                              color: Color.lerp(
+                                theme.textMuted,
+                                theme.textPrimary,
+                                _progressCurve.value,
+                              ),
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 2.5,
                               shadows: [
                                 Shadow(
                                   color: theme.primaryAccent.withValues(
-                                      alpha: 0.4 * _progressCurve.value),
+                                    alpha: 0.4 * _progressCurve.value,
+                                  ),
                                   blurRadius: 10,
                                 ),
                               ],

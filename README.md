@@ -61,6 +61,75 @@ readiness before changing app code: app approval/review status, ad unit age,
 policy or serving limits, app-ads.txt setup, account readiness, and testing on a
 real physical device with a production build.
 
+## Local Notifications
+
+This game uses a fully local notification system. It does not use Firebase,
+remote push notifications, or a backend.
+
+Implementation files:
+
+- `lib/notifications/notification_template.dart`
+- `lib/notifications/mock_notifications.dart`
+- `lib/notifications/notification_storage.dart`
+- `lib/notifications/notification_service.dart`
+- `lib/main.dart` for startup initialization and payload routing
+
+Packages:
+
+- `flutter_local_notifications`
+- `timezone`
+- `shared_preferences`
+
+Startup flow:
+
+1. `main()` initializes `NotificationService`.
+2. Android/iOS notification permissions are requested locally.
+3. Shared notification history is loaded from `shared_preferences`.
+4. Invalid or outdated pending local notifications are cancelled.
+5. The next daily local notification is scheduled with `zonedSchedule`.
+
+Scheduling rules:
+
+- Only one pending local notification is kept at a time.
+- The service schedules at most one notification every 24 hours.
+- The same template id is never selected twice in a row.
+- The picker avoids the last 5 recently used template ids when possible.
+- If the rolling history exhausts the active templates, reuse is allowed except
+  for the immediate last template.
+- Payloads are encoded as JSON with `templateId`, `category`, `route`, and
+  `scheduledFor`.
+
+Supported payload routes:
+
+- `/home`
+- `/game`
+- `/shop`
+- `/settings`
+
+For instant local testing from app code, call:
+
+```dart
+await NotificationService.instance.debugShowInstantNotification();
+```
+
+To test a specific template:
+
+```dart
+await NotificationService.instance.debugShowInstantNotification(
+  templateId: 'daily_puzzle_001',
+);
+```
+
+Android setup is in `android/app/src/main/AndroidManifest.xml`:
+
+- `POST_NOTIFICATIONS`
+- `RECEIVE_BOOT_COMPLETED`
+- `ScheduledNotificationReceiver`
+- `ScheduledNotificationBootReceiver`
+
+The service uses `AndroidScheduleMode.inexactAllowWhileIdle`, so it does not
+request exact alarm permissions.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
