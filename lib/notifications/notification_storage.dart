@@ -1,49 +1,82 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-class NotificationHistory {
-  const NotificationHistory({
-    this.lastNotificationAt,
-    this.lastNotificationTemplateId,
-    this.recentNotificationIds = const <String>[],
-    this.pendingNotificationTemplateId,
-    this.pendingNotificationScheduledFor,
+class ScheduledNotificationRecord {
+  const ScheduledNotificationRecord({
+    required this.id,
+    required this.templateId,
+    required this.scheduledFor,
+    required this.payloadRoute,
   });
 
-  final DateTime? lastNotificationAt;
+  final int id;
+  final String templateId;
+  final DateTime scheduledFor;
+  final String payloadRoute;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'templateId': templateId,
+      'scheduledFor': scheduledFor.toUtc().toIso8601String(),
+      'payloadRoute': payloadRoute,
+    };
+  }
+
+  factory ScheduledNotificationRecord.fromJson(Map<String, dynamic> json) {
+    final scheduledFor = _readDateTime(json['scheduledFor']);
+    if (scheduledFor == null) {
+      throw const FormatException('Missing scheduledFor');
+    }
+
+    return ScheduledNotificationRecord(
+      id: json['id'] as int,
+      templateId: json['templateId'] as String,
+      scheduledFor: scheduledFor,
+      payloadRoute: json['payloadRoute'] as String,
+    );
+  }
+
+  static DateTime? _readDateTime(Object? rawValue) {
+    if (rawValue is! String || rawValue.isEmpty) return null;
+    return DateTime.parse(rawValue).toLocal();
+  }
+}
+
+class NotificationHistory {
+  const NotificationHistory({
+    this.lastScheduledAt,
+    this.lastNotificationTemplateId,
+    this.recentNotificationIds = const <String>[],
+    this.scheduledNotifications = const <ScheduledNotificationRecord>[],
+  });
+
+  final DateTime? lastScheduledAt;
   final String? lastNotificationTemplateId;
   final List<String> recentNotificationIds;
-  final String? pendingNotificationTemplateId;
-  final DateTime? pendingNotificationScheduledFor;
+  final List<ScheduledNotificationRecord> scheduledNotifications;
 
   NotificationHistory copyWith({
-    DateTime? lastNotificationAt,
-    bool clearLastNotificationAt = false,
+    DateTime? lastScheduledAt,
+    bool clearLastScheduledAt = false,
     String? lastNotificationTemplateId,
     bool clearLastNotificationTemplateId = false,
     List<String>? recentNotificationIds,
-    String? pendingNotificationTemplateId,
-    bool clearPendingNotificationTemplateId = false,
-    DateTime? pendingNotificationScheduledFor,
-    bool clearPendingNotificationScheduledFor = false,
+    List<ScheduledNotificationRecord>? scheduledNotifications,
   }) {
     return NotificationHistory(
-      lastNotificationAt: clearLastNotificationAt
+      lastScheduledAt: clearLastScheduledAt
           ? null
-          : lastNotificationAt ?? this.lastNotificationAt,
+          : lastScheduledAt ?? this.lastScheduledAt,
       lastNotificationTemplateId: clearLastNotificationTemplateId
           ? null
           : lastNotificationTemplateId ?? this.lastNotificationTemplateId,
       recentNotificationIds:
           recentNotificationIds ?? this.recentNotificationIds,
-      pendingNotificationTemplateId: clearPendingNotificationTemplateId
-          ? null
-          : pendingNotificationTemplateId ?? this.pendingNotificationTemplateId,
-      pendingNotificationScheduledFor: clearPendingNotificationScheduledFor
-          ? null
-          : pendingNotificationScheduledFor ??
-                this.pendingNotificationScheduledFor,
+      scheduledNotifications:
+          scheduledNotifications ?? this.scheduledNotifications,
     );
   }
 }
@@ -54,12 +87,15 @@ class NotificationStorage {
 
   static const recentHistoryLimit = 5;
 
-  static const _lastNotificationAtKey = 'lastNotificationAt';
+  static const _lastScheduledAtKey = 'notificationLastScheduledAt';
   static const _lastNotificationTemplateIdKey = 'lastNotificationTemplateId';
   static const _recentNotificationIdsKey = 'recentNotificationIds';
-  static const _pendingNotificationTemplateIdKey =
+  static const _scheduledNotificationsKey = 'scheduledNotifications';
+
+  static const _legacyLastNotificationAtKey = 'lastNotificationAt';
+  static const _legacyPendingNotificationTemplateIdKey =
       'pendingNotificationTemplateId';
-  static const _pendingNotificationScheduledForKey =
+  static const _legacyPendingNotificationScheduledForKey =
       'pendingNotificationScheduledFor';
 
   SharedPreferences? _preferences;
@@ -73,19 +109,22 @@ class NotificationStorage {
 
     final recentIds =
         prefs.getStringList(_recentNotificationIdsKey) ?? const <String>[];
+    final scheduledRecords = prefs
+        .getStringList(_scheduledNotificationsKey)
+        ?.map(_decodeScheduledNotificationRecord)
+        .whereType<ScheduledNotificationRecord>()
+        .toList();
 
     return NotificationHistory(
-      lastNotificationAt: _readDateTime(prefs, _lastNotificationAtKey),
+      lastScheduledAt:
+          _readDateTime(prefs, _lastScheduledAtKey) ??
+          _readDateTime(prefs, _legacyLastNotificationAtKey),
       lastNotificationTemplateId: prefs.getString(
         _lastNotificationTemplateIdKey,
       ),
       recentNotificationIds: _normalizeRecentIds(recentIds),
-      pendingNotificationTemplateId: prefs.getString(
-        _pendingNotificationTemplateIdKey,
-      ),
-      pendingNotificationScheduledFor: _readDateTime(
-        prefs,
-        _pendingNotificationScheduledForKey,
+      scheduledNotifications: _normalizeScheduledRecords(
+        scheduledRecords ?? const <ScheduledNotificationRecord>[],
       ),
     );
   }
@@ -95,8 +134,8 @@ class NotificationStorage {
 
     await _writeNullableString(
       prefs,
-      _lastNotificationAtKey,
-      history.lastNotificationAt?.toUtc().toIso8601String(),
+      _lastScheduledAtKey,
+      history.lastScheduledAt?.toUtc().toIso8601String(),
     );
     await _writeNullableString(
       prefs,
@@ -107,49 +146,88 @@ class NotificationStorage {
       _recentNotificationIdsKey,
       _normalizeRecentIds(history.recentNotificationIds),
     );
-    await _writeNullableString(
-      prefs,
-      _pendingNotificationTemplateIdKey,
-      history.pendingNotificationTemplateId,
+    await prefs.setStringList(
+      _scheduledNotificationsKey,
+      _normalizeScheduledRecords(
+        history.scheduledNotifications,
+      ).map((record) => jsonEncode(record.toJson())).toList(),
     );
-    await _writeNullableString(
-      prefs,
-      _pendingNotificationScheduledForKey,
-      history.pendingNotificationScheduledFor?.toUtc().toIso8601String(),
+
+    await prefs.remove(_legacyPendingNotificationTemplateIdKey);
+    await prefs.remove(_legacyPendingNotificationScheduledForKey);
+  }
+
+  Future<void> saveScheduledNotifications(
+    List<ScheduledNotificationRecord> records,
+  ) async {
+    final history = await loadNotificationHistory();
+    await saveNotificationHistory(
+      history.copyWith(scheduledNotifications: records),
     );
   }
 
-  Future<void> clearPendingNotification() async {
+  Future<void> clearScheduledNotifications() async {
     final history = await loadNotificationHistory();
     await saveNotificationHistory(
-      history.copyWith(
-        clearPendingNotificationTemplateId: true,
-        clearPendingNotificationScheduledFor: true,
-      ),
+      history.copyWith(scheduledNotifications: const []),
     );
   }
 
   Future<void> clearAllNotificationHistory() async {
     final prefs = await _prefs;
-    await prefs.remove(_lastNotificationAtKey);
+    await prefs.remove(_lastScheduledAtKey);
     await prefs.remove(_lastNotificationTemplateIdKey);
     await prefs.remove(_recentNotificationIdsKey);
-    await prefs.remove(_pendingNotificationTemplateIdKey);
-    await prefs.remove(_pendingNotificationScheduledForKey);
+    await prefs.remove(_scheduledNotificationsKey);
+    await prefs.remove(_legacyLastNotificationAtKey);
+    await prefs.remove(_legacyPendingNotificationTemplateIdKey);
+    await prefs.remove(_legacyPendingNotificationScheduledForKey);
   }
 
   static List<String> appendRecentId(
     List<String> existingIds,
     String templateId,
   ) {
-    final next = <String>[templateId];
-    for (final id in existingIds) {
-      if (id != templateId && id.trim().isNotEmpty) {
-        next.add(id);
+    return appendRecentIds(existingIds, <String>[templateId]);
+  }
+
+  static List<String> appendRecentIds(
+    List<String> existingIds,
+    Iterable<String> templateIds,
+  ) {
+    final next = <String>[..._normalizeRecentIds(existingIds)];
+
+    for (final templateId in templateIds) {
+      final normalizedId = templateId.trim();
+      if (normalizedId.isEmpty) continue;
+
+      next.remove(normalizedId);
+      next.insert(0, normalizedId);
+
+      if (next.length > recentHistoryLimit) {
+        next.removeRange(recentHistoryLimit, next.length);
       }
-      if (next.length == recentHistoryLimit) break;
     }
+
     return next;
+  }
+
+  static ScheduledNotificationRecord? _decodeScheduledNotificationRecord(
+    String rawValue,
+  ) {
+    try {
+      final decoded = jsonDecode(rawValue);
+      if (decoded is! Map<String, dynamic>) return null;
+      return ScheduledNotificationRecord.fromJson(decoded);
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Invalid scheduled notification record in SharedPreferences.',
+        name: 'NotificationStorage',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
   }
 
   static DateTime? _readDateTime(SharedPreferences prefs, String key) {
@@ -183,10 +261,31 @@ class NotificationStorage {
   static List<String> _normalizeRecentIds(List<String> ids) {
     final normalized = <String>[];
     for (final id in ids) {
-      if (id.trim().isEmpty || normalized.contains(id)) continue;
-      normalized.add(id);
+      final normalizedId = id.trim();
+      if (normalizedId.isEmpty || normalized.contains(normalizedId)) {
+        continue;
+      }
+      normalized.add(normalizedId);
       if (normalized.length == recentHistoryLimit) break;
     }
+    return normalized;
+  }
+
+  static List<ScheduledNotificationRecord> _normalizeScheduledRecords(
+    List<ScheduledNotificationRecord> records,
+  ) {
+    final byId = <int, ScheduledNotificationRecord>{};
+
+    for (final record in records) {
+      if (record.templateId.trim().isEmpty ||
+          record.payloadRoute.trim().isEmpty) {
+        continue;
+      }
+      byId[record.id] = record;
+    }
+
+    final normalized = byId.values.toList()
+      ..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor));
     return normalized;
   }
 }

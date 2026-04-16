@@ -27,9 +27,7 @@ void main() async {
   await NotificationService.instance.init(navigatorKey: appNavigatorKey);
   await NotificationService.instance.requestPermissions();
   await NotificationService.instance.loadNotificationHistory();
-  await NotificationService.instance
-      .cancelInvalidOrOutdatedPendingNotification();
-  await NotificationService.instance.scheduleNextDailyNotification();
+  await NotificationService.instance.scheduleDailyNotifications();
   final initialNotificationRoute = NotificationService.instance
       .takeInitialPayloadRoute();
 

@@ -85,17 +85,25 @@ Startup flow:
 1. `main()` initializes `NotificationService`.
 2. Android/iOS notification permissions are requested locally.
 3. Shared notification history is loaded from `shared_preferences`.
-4. Invalid or outdated pending local notifications are cancelled.
-5. The next daily local notification is scheduled with `zonedSchedule`.
+4. Pending local notifications are inspected.
+5. Outdated or invalid scheduled reminders owned by the game are cancelled.
+6. The next fixed reminder slots are scheduled with `zonedSchedule`.
 
 Scheduling rules:
 
-- Only one pending local notification is kept at a time.
-- The service schedules at most one notification every 24 hours.
+- The game owns three daily reminder IDs.
+- Fixed reminder times are 3:00 PM, 7:00 PM, and 9:30 PM in the device's
+  local time.
+- At startup, the service schedules the remaining fixed times for today.
+- If all three times for today have passed, the service schedules tomorrow's
+  3:00 PM, 7:00 PM, and 9:30 PM reminders.
+- The service only keeps future reminders needed for the next active schedule.
 - The same template id is never selected twice in a row.
 - The picker avoids the last 5 recently used template ids when possible.
-- If the rolling history exhausts the active templates, reuse is allowed except
-  for the immediate last template.
+- The reminders scheduled for the same day must use different template ids.
+- If the rolling history exhausts eligible templates, reuse is allowed after
+  the recent-history preference is relaxed, but same-day duplicates are still
+  blocked.
 - Payloads are encoded as JSON with `templateId`, `category`, `route`, and
   `scheduledFor`.
 
@@ -106,18 +114,24 @@ Supported payload routes:
 - `/shop`
 - `/settings`
 
-For instant local testing from app code, call:
+For scheduled local testing from app code, call:
 
 ```dart
-await NotificationService.instance.debugShowInstantNotification();
+await NotificationService.instance.debugScheduleForNextMinute();
 ```
 
 To test a specific template:
 
 ```dart
-await NotificationService.instance.debugShowInstantNotification(
+await NotificationService.instance.debugScheduleForNextMinute(
   templateId: 'daily_puzzle_001',
 );
+```
+
+For an immediate heads-up notification during development, call:
+
+```dart
+await NotificationService.instance.debugShowInstantNotification();
 ```
 
 Android setup is in `android/app/src/main/AndroidManifest.xml`:

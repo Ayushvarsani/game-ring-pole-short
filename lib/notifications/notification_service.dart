@@ -12,6 +12,32 @@ import 'mock_notifications.dart';
 import 'notification_storage.dart';
 import 'notification_template.dart';
 
+class _DailyNotificationSlot {
+  const _DailyNotificationSlot({
+    required this.id,
+    required this.hour,
+    required this.minute,
+  });
+
+  final int id;
+  final int hour;
+  final int minute;
+
+  DateTime scheduledFor(DateTime date) {
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+}
+
+class _ScheduleCleanupResult {
+  const _ScheduleCleanupResult({
+    required this.history,
+    required this.keptRecords,
+  });
+
+  final NotificationHistory history;
+  final List<ScheduledNotificationRecord> keptRecords;
+}
+
 class NotificationService {
   NotificationService._({
     FlutterLocalNotificationsPlugin? plugin,
@@ -23,8 +49,22 @@ class NotificationService {
 
   static final NotificationService instance = NotificationService._();
 
-  static const int dailyNotificationId = 7401;
-  static const Duration minimumNotificationInterval = Duration(hours: 24);
+  static const int afternoonNotificationId = 740301;
+  static const int eveningNotificationId = 740302;
+  static const int nightNotificationId = 740303;
+  static const int debugNotificationId = 740399;
+  static const int legacyDailyNotificationId = 7401;
+
+  static const Set<int> dailyNotificationIds = <int>{
+    afternoonNotificationId,
+    eveningNotificationId,
+    nightNotificationId,
+  };
+
+  static const Set<int> _ownedScheduledNotificationIds = <int>{
+    legacyDailyNotificationId,
+    ...dailyNotificationIds,
+  };
 
   static const String _androidChannelId = 'daily_puzzle_reminders';
   static const String _androidChannelName = 'Daily puzzle reminders';
@@ -37,6 +77,17 @@ class NotificationService {
     '/shop',
     '/settings',
   };
+
+  static const List<_DailyNotificationSlot> _dailySlots =
+      <_DailyNotificationSlot>[
+        _DailyNotificationSlot(
+          id: afternoonNotificationId,
+          hour: 15,
+          minute: 0,
+        ),
+        _DailyNotificationSlot(id: eveningNotificationId, hour: 19, minute: 0),
+        _DailyNotificationSlot(id: nightNotificationId, hour: 21, minute: 30),
+      ];
 
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationStorage _storage;
@@ -160,82 +211,153 @@ class NotificationService {
     return _storage.saveNotificationHistory(history);
   }
 
-  Future<NotificationTemplate?> scheduleNextDailyNotification() async {
-    if (!_canUseLocalNotifications) return null;
+  Future<List<ScheduledNotificationRecord>> scheduleDailyNotifications({
+    DateTime? now,
+  }) async {
+    if (!_canUseLocalNotifications) {
+      return const <ScheduledNotificationRecord>[];
+    }
     if (!_isInitialized) await init();
     if (_permissionsGranted == false) {
       _log('Schedule skipped because notification permission was denied.');
-      return null;
+      return const <ScheduledNotificationRecord>[];
+    }
+
+    final nowLocal = now ?? DateTime.now();
+    final targetSlots = _targetSlotsFor(nowLocal);
+    final targetDate = targetSlots.first.scheduledFor;
+
+    return scheduleNotificationsForDate(targetDate, now: nowLocal);
+  }
+
+  Future<List<ScheduledNotificationRecord>> scheduleNotificationsForDate(
+    DateTime date, {
+    DateTime? now,
+  }) async {
+    if (!_canUseLocalNotifications) {
+      return const <ScheduledNotificationRecord>[];
+    }
+    if (!_isInitialized) await init();
+    if (_permissionsGranted == false) {
+      _log('Schedule skipped because notification permission was denied.');
+      return const <ScheduledNotificationRecord>[];
+    }
+
+    final nowLocal = now ?? DateTime.now();
+    final targetSlots = _slotsForDate(date)
+        .where((slot) => slot.scheduledFor.isAfter(nowLocal))
+        .toList(growable: false);
+
+    if (targetSlots.isEmpty) {
+      final history = await loadNotificationHistory();
+      final pendingRequests = await _pendingNotificationRequests();
+      await _cleanupForTargetSlots(
+        history: history,
+        pendingRequests: pendingRequests,
+        targetSlots: const <ScheduledNotificationRecord>[],
+        now: nowLocal,
+      );
+      return const <ScheduledNotificationRecord>[];
     }
 
     try {
-      await cancelInvalidOrOutdatedPendingNotification();
-
       final history = await loadNotificationHistory();
-      final now = DateTime.now();
-      final lastNotificationAt = history.lastNotificationAt;
-      if (lastNotificationAt != null &&
-          now.difference(lastNotificationAt) < minimumNotificationInterval) {
+      final pendingRequests = await _pendingNotificationRequests();
+      final cleanup = await _cleanupForTargetSlots(
+        history: history,
+        pendingRequests: pendingRequests,
+        targetSlots: targetSlots,
+        now: nowLocal,
+      );
+
+      final keptRecords = cleanup.keptRecords;
+      final keptIds = keptRecords.map((record) => record.id).toSet();
+      final missingSlots = targetSlots
+          .where((slot) => !keptIds.contains(slot.id))
+          .toList(growable: false);
+
+      if (missingSlots.isEmpty) {
+        _log('Daily reminders already match the next fixed schedule.');
+        return keptRecords;
+      }
+
+      final keptTemplateIds = keptRecords
+          .map((record) => record.templateId)
+          .toSet();
+      final templates = pickUniqueNotifications(
+        count: missingSlots.length,
+        history: cleanup.history,
+        excludedTemplateIds: keptTemplateIds,
+      );
+
+      if (templates.length < missingSlots.length) {
         _log(
-          'Schedule skipped. Last notification was scheduled at '
-          '${lastNotificationAt.toIso8601String()}.',
+          'Only ${templates.length} notification templates were available '
+          'for ${missingSlots.length} required slots.',
         );
-        return null;
       }
 
-      final template = pickRandomNotification(history: history);
-      if (template == null) {
-        _log('Schedule skipped. No eligible notification template found.');
-        return null;
+      final newRecords = <ScheduledNotificationRecord>[];
+      for (var index = 0; index < templates.length; index += 1) {
+        final slot = missingSlots[index];
+        final template = templates[index];
+        final record = ScheduledNotificationRecord(
+          id: slot.id,
+          templateId: template.id,
+          scheduledFor: slot.scheduledFor,
+          payloadRoute: template.payloadRoute,
+        );
+
+        await _scheduleRecord(record, template);
+        newRecords.add(record);
       }
 
-      final scheduledFor = now.add(minimumNotificationInterval);
-      final zonedScheduleTime = tz.TZDateTime.from(scheduledFor, tz.local);
-      final payload = _encodePayload(
-        template: template,
-        scheduledFor: scheduledFor,
+      final scheduledRecords = <ScheduledNotificationRecord>[
+        ...keptRecords,
+        ...newRecords,
+      ]..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor));
+
+      final recentIds = NotificationStorage.appendRecentIds(
+        cleanup.history.recentNotificationIds,
+        newRecords.map((record) => record.templateId),
       );
 
-      await _cancelAllPendingNotifications();
-      await _plugin.zonedSchedule(
-        id: dailyNotificationId,
-        title: template.title,
-        body: template.body,
-        scheduledDate: zonedScheduleTime,
-        notificationDetails: _notificationDetails(),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: payload,
-      );
+      final lastTemplateId = newRecords.isEmpty
+          ? cleanup.history.lastNotificationTemplateId
+          : newRecords.last.templateId;
 
       await saveNotificationHistory(
-        history.copyWith(
-          lastNotificationAt: now,
-          lastNotificationTemplateId: template.id,
-          recentNotificationIds: NotificationStorage.appendRecentId(
-            history.recentNotificationIds,
-            template.id,
-          ),
-          pendingNotificationTemplateId: template.id,
-          pendingNotificationScheduledFor: scheduledFor,
+        cleanup.history.copyWith(
+          lastScheduledAt: nowLocal,
+          lastNotificationTemplateId: lastTemplateId,
+          recentNotificationIds: recentIds,
+          scheduledNotifications: scheduledRecords,
         ),
       );
 
-      _log('Scheduled ${template.id} for ${scheduledFor.toIso8601String()}.');
-      return template;
+      _log(
+        'Scheduled ${newRecords.length} local reminder(s). '
+        '${scheduledRecords.length} future fixed reminder(s) are active.',
+      );
+      return scheduledRecords;
     } catch (error, stackTrace) {
       _log(
-        'Failed to schedule next daily notification.',
+        'Failed to schedule daily notifications.',
         error: error,
         stackTrace: stackTrace,
       );
-      return null;
+      return const <ScheduledNotificationRecord>[];
     }
   }
 
-  NotificationTemplate? pickRandomNotification({
+  List<NotificationTemplate> pickUniqueNotifications({
+    required int count,
     NotificationHistory? history,
     Iterable<NotificationTemplate> templates = mockNotifications,
+    Set<String> excludedTemplateIds = const <String>{},
   }) {
+    if (count <= 0) return const <NotificationTemplate>[];
+
     final notificationHistory = history ?? const NotificationHistory();
     final activeTemplates = templates
         .where(
@@ -246,83 +368,85 @@ class NotificationService {
         )
         .toList(growable: false);
 
-    if (activeTemplates.isEmpty) return null;
+    if (activeTemplates.isEmpty) return const <NotificationTemplate>[];
 
-    final lastTemplateId = notificationHistory.lastNotificationTemplateId;
+    final picked = <NotificationTemplate>[];
     final recentIds = notificationHistory.recentNotificationIds
         .take(NotificationStorage.recentHistoryLimit)
         .toSet();
+    var lastTemplateId =
+        notificationHistory.lastNotificationTemplateId ??
+        (notificationHistory.recentNotificationIds.isEmpty
+            ? null
+            : notificationHistory.recentNotificationIds.first);
 
-    var candidates = activeTemplates
-        .where(
-          (template) =>
-              template.id != lastTemplateId && !recentIds.contains(template.id),
-        )
-        .toList();
+    while (picked.length < count) {
+      final blockedIds = <String>{
+        ...excludedTemplateIds,
+        ...picked.map((template) => template.id),
+      };
 
-    candidates = candidates.isEmpty
-        ? activeTemplates
-              .where((template) => template.id != lastTemplateId)
-              .toList()
-        : candidates;
+      var candidates = activeTemplates
+          .where(
+            (template) =>
+                !blockedIds.contains(template.id) &&
+                template.id != lastTemplateId &&
+                !recentIds.contains(template.id),
+          )
+          .toList();
 
-    if (candidates.isEmpty) return null;
-    return candidates[_random.nextInt(candidates.length)];
+      candidates = candidates.isEmpty
+          ? activeTemplates
+                .where(
+                  (template) =>
+                      !blockedIds.contains(template.id) &&
+                      template.id != lastTemplateId,
+                )
+                .toList()
+          : candidates;
+
+      if (candidates.isEmpty) break;
+
+      final selected = candidates[_random.nextInt(candidates.length)];
+      picked.add(selected);
+      lastTemplateId = selected.id;
+    }
+
+    return picked;
   }
 
-  Future<void> cancelInvalidOrOutdatedPendingNotification() async {
+  NotificationTemplate? pickRandomNotification({
+    NotificationHistory? history,
+    Iterable<NotificationTemplate> templates = mockNotifications,
+  }) {
+    final picked = pickUniqueNotifications(
+      count: 1,
+      history: history,
+      templates: templates,
+    );
+    return picked.isEmpty ? null : picked.single;
+  }
+
+  Future<void> cancelInvalidOrOutdatedPendingNotifications({
+    DateTime? now,
+  }) async {
     if (!_canUseLocalNotifications) return;
+    if (!_isInitialized) await init();
 
-    try {
-      final pendingRequests = await _plugin.pendingNotificationRequests();
-      final history = await loadNotificationHistory();
-      final now = DateTime.now();
+    final nowLocal = now ?? DateTime.now();
+    final history = await loadNotificationHistory();
+    final pendingRequests = await _pendingNotificationRequests();
 
-      if (pendingRequests.isEmpty) {
-        if (history.pendingNotificationTemplateId != null ||
-            history.pendingNotificationScheduledFor != null) {
-          await _storage.clearPendingNotification();
-        }
-        return;
-      }
+    await _cleanupForTargetSlots(
+      history: history,
+      pendingRequests: pendingRequests,
+      targetSlots: _targetSlotsFor(nowLocal),
+      now: nowLocal,
+    );
+  }
 
-      final hasUnexpectedPending =
-          pendingRequests.length > 1 ||
-          pendingRequests.any((request) => request.id != dailyNotificationId);
-      if (hasUnexpectedPending) {
-        await _cancelAllPendingNotifications();
-        await _storage.clearPendingNotification();
-        _log('Cancelled unexpected pending notifications.');
-        return;
-      }
-
-      final pending = pendingRequests.single;
-      final pendingTemplateId = _templateIdFromPayload(pending.payload);
-      final pendingRoute = routeFromPayload(pending.payload);
-      final scheduledFor = history.pendingNotificationScheduledFor;
-
-      final isValidTemplate =
-          pendingTemplateId != null &&
-          _templateById(pendingTemplateId)?.isActive == true;
-      final isValidPending =
-          pending.id == dailyNotificationId &&
-          isValidTemplate &&
-          pendingRoute != null &&
-          scheduledFor != null &&
-          scheduledFor.isAfter(now);
-
-      if (!isValidPending) {
-        await _cancelAllPendingNotifications();
-        await _storage.clearPendingNotification();
-        _log('Cancelled invalid or outdated pending notification.');
-      }
-    } catch (error, stackTrace) {
-      _log(
-        'Failed to inspect pending notifications.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
+  Future<void> cancelInvalidOrOutdatedPendingNotification({DateTime? now}) {
+    return cancelInvalidOrOutdatedPendingNotifications(now: now);
   }
 
   Future<void> cancelAllNotifications() async {
@@ -330,7 +454,7 @@ class NotificationService {
 
     try {
       await _plugin.cancelAll();
-      await _storage.clearPendingNotification();
+      await _storage.clearScheduledNotifications();
       _log('Cancelled all local notifications.');
     } catch (error, stackTrace) {
       _log(
@@ -338,6 +462,64 @@ class NotificationService {
         error: error,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  Future<NotificationTemplate?> debugScheduleForNextMinute({
+    String? templateId,
+  }) async {
+    if (!_canUseLocalNotifications) return null;
+    if (!_isInitialized) await init();
+    if (_permissionsGranted == false) {
+      _log('Debug notification skipped because permission was denied.');
+      return null;
+    }
+
+    try {
+      final history = await loadNotificationHistory();
+      final template = templateId == null
+          ? pickRandomNotification(history: history)
+          : _templateById(templateId);
+
+      if (template == null || !template.isActive) {
+        _log('Debug notification skipped. Template not found: $templateId');
+        return null;
+      }
+
+      final now = DateTime.now();
+      final scheduledFor = now.add(const Duration(minutes: 1));
+      final record = ScheduledNotificationRecord(
+        id: debugNotificationId,
+        templateId: template.id,
+        scheduledFor: scheduledFor,
+        payloadRoute: template.payloadRoute,
+      );
+
+      await _plugin.cancel(id: debugNotificationId);
+      await _scheduleRecord(record, template);
+      await saveNotificationHistory(
+        history.copyWith(
+          lastScheduledAt: now,
+          lastNotificationTemplateId: template.id,
+          recentNotificationIds: NotificationStorage.appendRecentId(
+            history.recentNotificationIds,
+            template.id,
+          ),
+        ),
+      );
+
+      _log(
+        'Scheduled debug notification ${template.id} for '
+        '${scheduledFor.toIso8601String()}.',
+      );
+      return template;
+    } catch (error, stackTrace) {
+      _log(
+        'Failed to schedule debug notification.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
     }
   }
 
@@ -363,9 +545,8 @@ class NotificationService {
       }
 
       final now = DateTime.now();
-      await _cancelAllPendingNotifications();
       await _plugin.show(
-        id: dailyNotificationId,
+        id: debugNotificationId,
         title: template.title,
         body: template.body,
         notificationDetails: _notificationDetails(),
@@ -374,14 +555,12 @@ class NotificationService {
 
       await saveNotificationHistory(
         history.copyWith(
-          lastNotificationAt: now,
+          lastScheduledAt: now,
           lastNotificationTemplateId: template.id,
           recentNotificationIds: NotificationStorage.appendRecentId(
             history.recentNotificationIds,
             template.id,
           ),
-          clearPendingNotificationTemplateId: true,
-          clearPendingNotificationScheduledFor: true,
         ),
       );
 
@@ -439,23 +618,173 @@ class NotificationService {
       return payload;
     }
 
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is! Map<String, dynamic>) return null;
-
-      final route = decoded['route'];
-      if (route is String && validPayloadRoutes.contains(route)) {
-        return route;
-      }
-    } on FormatException catch (error, stackTrace) {
-      _log(
-        'Invalid notification payload JSON.',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    final decoded = _decodePayload(payload);
+    final route = decoded?['route'];
+    if (route is String && validPayloadRoutes.contains(route)) {
+      return route;
     }
 
     return null;
+  }
+
+  List<ScheduledNotificationRecord> _targetSlotsFor(DateTime now) {
+    final todaysSlots = _slotsForDate(
+      now,
+    ).where((slot) => slot.scheduledFor.isAfter(now)).toList(growable: false);
+
+    if (todaysSlots.isNotEmpty) return todaysSlots;
+
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    return _slotsForDate(tomorrow);
+  }
+
+  List<ScheduledNotificationRecord> _slotsForDate(DateTime date) {
+    return _dailySlots
+        .map(
+          (slot) => ScheduledNotificationRecord(
+            id: slot.id,
+            templateId: '',
+            scheduledFor: slot.scheduledFor(date),
+            payloadRoute: '',
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<_ScheduleCleanupResult> _cleanupForTargetSlots({
+    required NotificationHistory history,
+    required List<PendingNotificationRequest> pendingRequests,
+    required List<ScheduledNotificationRecord> targetSlots,
+    required DateTime now,
+  }) async {
+    final targetById = <int, ScheduledNotificationRecord>{
+      for (final slot in targetSlots) slot.id: slot,
+    };
+    final storedById = <int, ScheduledNotificationRecord>{
+      for (final record in history.scheduledNotifications) record.id: record,
+    };
+
+    final idsToCancel = <int>{};
+    final keptRecords = <ScheduledNotificationRecord>[];
+
+    for (final request in pendingRequests) {
+      if (!_ownedScheduledNotificationIds.contains(request.id)) continue;
+
+      final targetSlot = targetById[request.id];
+      if (targetSlot == null) {
+        idsToCancel.add(request.id);
+        continue;
+      }
+
+      final hasPayload = request.payload?.trim().isNotEmpty == true;
+      final payloadRecord = _recordFromPendingPayload(
+        id: request.id,
+        payload: request.payload,
+      );
+      final record =
+          payloadRecord ?? (!hasPayload ? storedById[request.id] : null);
+
+      if (record == null || !_recordMatchesSlot(record, targetSlot, now)) {
+        idsToCancel.add(request.id);
+        continue;
+      }
+
+      keptRecords.add(record);
+    }
+
+    final keptTemplateIds = <String>{};
+    final hasDuplicateTemplate = keptRecords.any(
+      (record) => !keptTemplateIds.add(record.templateId),
+    );
+
+    if (hasDuplicateTemplate) {
+      idsToCancel.addAll(keptRecords.map((record) => record.id));
+      keptRecords.clear();
+    }
+
+    for (final id in idsToCancel) {
+      await _plugin.cancel(id: id);
+    }
+
+    keptRecords.sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor));
+    final cleanedHistory = history.copyWith(
+      scheduledNotifications: keptRecords,
+    );
+    await saveNotificationHistory(cleanedHistory);
+
+    if (idsToCancel.isNotEmpty) {
+      _log(
+        'Cancelled outdated local reminder id(s): ${idsToCancel.join(', ')}',
+      );
+    }
+
+    return _ScheduleCleanupResult(
+      history: cleanedHistory,
+      keptRecords: keptRecords,
+    );
+  }
+
+  bool _recordMatchesSlot(
+    ScheduledNotificationRecord record,
+    ScheduledNotificationRecord slot,
+    DateTime now,
+  ) {
+    final template = _templateById(record.templateId);
+    return record.id == slot.id &&
+        record.scheduledFor.isAfter(now) &&
+        _isSameScheduledMinute(record.scheduledFor, slot.scheduledFor) &&
+        template?.isActive == true &&
+        validPayloadRoutes.contains(record.payloadRoute);
+  }
+
+  bool _isSameScheduledMinute(DateTime left, DateTime right) {
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day &&
+        left.hour == right.hour &&
+        left.minute == right.minute;
+  }
+
+  Future<void> _scheduleRecord(
+    ScheduledNotificationRecord record,
+    NotificationTemplate template,
+  ) async {
+    await _plugin.zonedSchedule(
+      id: record.id,
+      title: template.title,
+      body: template.body,
+      scheduledDate: tz.TZDateTime.from(record.scheduledFor, tz.local),
+      notificationDetails: _notificationDetails(),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: _encodePayload(
+        template: template,
+        scheduledFor: record.scheduledFor,
+      ),
+    );
+  }
+
+  Future<List<PendingNotificationRequest>>
+  _pendingNotificationRequests() async {
+    try {
+      final requests = await _plugin.pendingNotificationRequests();
+      final managedCount = requests
+          .where(
+            (request) => _ownedScheduledNotificationIds.contains(request.id),
+          )
+          .length;
+      _log(
+        'Inspected ${requests.length} pending notification(s); '
+        '$managedCount are daily puzzle reminders.',
+      );
+      return requests;
+    } on UnimplementedError catch (error, stackTrace) {
+      _log(
+        'Pending notification inspection is not implemented on this platform.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const <PendingNotificationRequest>[];
+    }
   }
 
   Future<void> _createAndroidNotificationChannel() async {
@@ -533,16 +862,53 @@ class NotificationService {
     });
   }
 
-  String? _templateIdFromPayload(String? payload) {
+  Map<String, dynamic>? _decodePayload(String? payload) {
     if (payload == null || payload.trim().isEmpty) return null;
 
     try {
       final decoded = jsonDecode(payload);
       if (decoded is! Map<String, dynamic>) return null;
+      return decoded;
+    } on FormatException catch (error, stackTrace) {
+      _log(
+        'Invalid notification payload JSON.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
 
-      final templateId = decoded['templateId'];
-      return templateId is String ? templateId : null;
-    } on FormatException {
+  ScheduledNotificationRecord? _recordFromPendingPayload({
+    required int id,
+    required String? payload,
+  }) {
+    final decoded = _decodePayload(payload);
+    if (decoded == null) return null;
+
+    final templateId = decoded['templateId'];
+    final route = decoded['route'];
+    final rawScheduledFor = decoded['scheduledFor'];
+
+    if (templateId is! String ||
+        route is! String ||
+        rawScheduledFor is! String) {
+      return null;
+    }
+
+    try {
+      return ScheduledNotificationRecord(
+        id: id,
+        templateId: templateId,
+        scheduledFor: DateTime.parse(rawScheduledFor).toLocal(),
+        payloadRoute: route,
+      );
+    } on FormatException catch (error, stackTrace) {
+      _log(
+        'Invalid scheduledFor in notification payload.',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }
@@ -552,10 +918,6 @@ class NotificationService {
       if (template.id == templateId) return template;
     }
     return null;
-  }
-
-  Future<void> _cancelAllPendingNotifications() async {
-    await _plugin.cancelAllPendingNotifications();
   }
 
   bool get _canUseLocalNotifications {
