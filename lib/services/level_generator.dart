@@ -27,6 +27,69 @@ class LevelConfig {
 class LevelGenerator {
   static final _random = Random();
 
+  static bool hasTutorialLayout(int level) {
+    return level == 1 || level == 2;
+  }
+
+  static List<BottleModel>? tutorialBottlesForLevel(int level) {
+    return switch (level) {
+      1 => _bottlesFromColorStacks(const <List<Color>>[
+        <Color>[
+          GameColors.red,
+          GameColors.blue,
+          GameColors.red,
+          GameColors.blue,
+        ],
+        <Color>[
+          GameColors.blue,
+          GameColors.red,
+          GameColors.blue,
+          GameColors.red,
+        ],
+        <Color>[
+          GameColors.green,
+          GameColors.green,
+          GameColors.green,
+          GameColors.green,
+        ],
+        <Color>[],
+        <Color>[],
+      ]),
+      2 => _bottlesFromColorStacks(const <List<Color>>[
+        <Color>[
+          GameColors.red,
+          GameColors.green,
+          GameColors.red,
+          GameColors.green,
+        ],
+        <Color>[
+          GameColors.green,
+          GameColors.red,
+          GameColors.green,
+          GameColors.red,
+        ],
+        <Color>[
+          GameColors.blue,
+          GameColors.blue,
+          GameColors.blue,
+          GameColors.blue,
+        ],
+        <Color>[],
+        <Color>[],
+      ]),
+      _ => null,
+    };
+  }
+
+  static List<BottleModel> _bottlesFromColorStacks(List<List<Color>> stacks) {
+    return List<BottleModel>.generate(
+      stacks.length,
+      (index) =>
+          BottleModel(id: index, colors: List<Color>.from(stacks[index])),
+      growable: false,
+    );
+  }
+
   /// Generates a solvable level with the given number of color-filled bottles.
   /// Returns a list of bottles: [numColors] filled + 2 empty bottles.
   ///

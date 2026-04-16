@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,9 @@ import '../services/ad_service.dart';
 import '../services/coin_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_theme_config.dart';
+import '../tutorial/tutorial_controller.dart';
+import '../tutorial/tutorial_data.dart';
+import '../tutorial/tutorial_overlay.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/bottle_widget.dart';
 import '../widgets/game_ui.dart';
@@ -50,6 +54,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late final PourAnimationController _pourAnimation;
   late final AnimationController _wobbleController;
   late final AnimationController _celebrationController;
+  late final TutorialController _tutorialController;
 
   final Map<int, GlobalKey> _bottleSlotKeys = {};
 
@@ -67,11 +72,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _extraMovesRewardUsedForAttempt = false;
   bool _extraMovesOfferShowing = false;
   bool _extraMovesClaimInFlight = false;
+  int? _lastTutorialRequestLevel;
+  DateTime? _lastTutorialRequestStartedAt;
 
   @override
   void initState() {
     super.initState();
 
+    _tutorialController = TutorialController();
     _pourAnimation = PourAnimationController(vsync: this);
     _pourAnimation.controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -125,6 +133,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         });
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startTutorialForCurrentLevel();
+    });
   }
 
   @override
@@ -132,7 +144,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _pourAnimation.dispose();
     _wobbleController.dispose();
     _celebrationController.dispose();
+    _tutorialController.dispose();
     super.dispose();
+  }
+
+  void _startTutorialForCurrentLevel() {
+    if (!mounted) return;
+
+    final state = context.read<GameCubit>().state;
+    if (state.status != GameStatus.playing) return;
+    if (state.level != 1 && state.level != 2) return;
+    if (_lastTutorialRequestLevel == state.level &&
+        _lastTutorialRequestStartedAt == state.levelStartTime) {
+      return;
+    }
+
+    _lastTutorialRequestLevel = state.level;
+    _lastTutorialRequestStartedAt = state.levelStartTime;
+    _tutorialController.startLevelTutorial(
+      state.level,
+      tutorialStepsForLevel(state.level),
+    );
   }
 
   void _prepareRewardCompletion(GameState state) {
@@ -410,6 +442,91 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     context.read<SettingsCubit>().triggerLightHaptic();
   }
 
+  void _handleBottleTap(BuildContext context, GameState state, int index) {
+    if (_isAnimating) return;
+
+    final selectedBottleIndex = state.selectedBottleIndex;
+    final isPourAttempt =
+        selectedBottleIndex != -1 && selectedBottleIndex != index;
+
+    if (selectedBottleIndex == -1) {
+      if (!_tutorialController.validateSourceTap(index)) return;
+
+      context.read<SettingsCubit>().playClickSound();
+      context.read<SettingsCubit>().triggerSelectionHaptic();
+      context.read<GameCubit>().onBottleTap(index);
+      unawaited(_tutorialController.recordSourceTapSucceeded(index));
+      return;
+    }
+
+    if (isPourAttempt) {
+      if (!_tutorialController.validatePourAttempt(
+        selectedBottleIndex,
+        index,
+      )) {
+        return;
+      }
+
+      context.read<SettingsCubit>().playClickSound();
+      context.read<SettingsCubit>().triggerSelectionHaptic();
+      final gameCubit = context.read<GameCubit>();
+      gameCubit.onBottleTap(index);
+
+      if (gameCubit.state.status == GameStatus.animating) {
+        unawaited(
+          _recordTutorialPourSuccess(
+            sourceBottleIndex: selectedBottleIndex,
+            targetBottleIndex: index,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_tutorialController.blocksOtherInput) {
+      _tutorialController.validatePourAttempt(selectedBottleIndex, index);
+      return;
+    }
+
+    context.read<SettingsCubit>().playClickSound();
+    context.read<SettingsCubit>().triggerSelectionHaptic();
+    context.read<GameCubit>().onBottleTap(index);
+  }
+
+  Future<void> _recordTutorialPourSuccess({
+    required int sourceBottleIndex,
+    required int targetBottleIndex,
+  }) async {
+    await _tutorialController.recordPourSucceeded(
+      sourceBottleIndex: sourceBottleIndex,
+      targetBottleIndex: targetBottleIndex,
+    );
+  }
+
+  void _handleUndoTap(BuildContext context) {
+    context.read<SettingsCubit>().playClickSound();
+    context.read<SettingsCubit>().triggerLightHaptic();
+
+    AdService.instance.handleUndoClick(
+      onUndoGranted: () {
+        context.read<GameCubit>().undo();
+      },
+      onAdFailed: () {},
+    );
+  }
+
+  void _handleHintTap(BuildContext context) {
+    context.read<SettingsCubit>().playClickSound();
+    context.read<SettingsCubit>().triggerLightHaptic();
+
+    AdService.instance.handleHintClick(
+      onHintGranted: () {
+        context.read<GameCubit>().getHint();
+      },
+      onAdFailed: () {},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<GameCubit, GameState>(
@@ -419,10 +536,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           prev.levelStartTime != curr.levelStartTime,
       listener: (context, state) {
         _prepareExtraMovesAttempt(state);
+        if (state.status == GameStatus.playing) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _startTutorialForCurrentLevel();
+          });
+        }
         if (state.status == GameStatus.animating && !_isAnimating) {
           _startPourAnimation();
         }
         if (state.status == GameStatus.won) {
+          unawaited(_tutorialController.recordLevelCompleted());
           _handleLevelWon(context, state);
           return;
         }
@@ -480,7 +603,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                     ),
                                   ),
                                   SizedBox(height: metrics.sectionSpacing),
-                                  _buildBottomBar(context, state, metrics),
+                                  AnimatedBuilder(
+                                    animation: _tutorialController,
+                                    builder: (context, _) {
+                                      return _buildBottomBar(
+                                        context,
+                                        state,
+                                        metrics,
+                                      );
+                                    },
+                                  ),
                                 ],
                               );
                             },
@@ -491,6 +623,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     ],
                   ),
                 ),
+                TutorialOverlay(controller: _tutorialController),
               ],
             ),
           ),
@@ -585,6 +718,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _pourAnimation.controller,
         _wobbleController,
         _celebrationController,
+        _tutorialController,
       ]),
       builder: (context, child) {
         return LayoutBuilder(
@@ -737,6 +871,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     bool asPlaceholder = false,
     bool ignoreTap = false,
   }) {
+    final theme = AppTheme.of(context);
     final bottle = state.bottles[index];
     final isSelected =
         !renderState.isSource &&
@@ -746,6 +881,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         !renderState.isSource &&
         !renderState.isDest &&
         (state.hintSourceIndex == index || state.hintDestIndex == index);
+    final tutorialHighlighted =
+        !renderState.isSource &&
+        !renderState.isDest &&
+        _tutorialController.highlightsBottle(index);
+    final tutorialDimmed =
+        !renderState.isSource &&
+        !renderState.isDest &&
+        _tutorialController.dimsBottle(index);
     final wobblePhase = renderState.isSource || renderState.isDest
         ? _pourAnimation.controller.value * 6 * pi
         : _wobbleController.value * 2 * pi;
@@ -784,12 +927,53 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       key: measureKey,
       width: bottleSize.width,
       height: bottleSize.height,
-      child: Transform.translate(
-        offset: renderState.translation,
-        child: Transform.scale(
-          scale: renderState.scale,
-          alignment: Alignment.center,
-          child: bottleCanvas,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: tutorialDimmed ? 0.28 : 1.0,
+        child: Transform.translate(
+          offset: renderState.translation,
+          child: Transform.scale(
+            scale: renderState.scale,
+            alignment: Alignment.center,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                if (tutorialHighlighted)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Transform.scale(
+                        scale: 1.13,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: theme.goldAccent.withValues(alpha: 0.92),
+                              width: 2.3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.goldAccent.withValues(alpha: 0.45),
+                                blurRadius: 22,
+                                spreadRadius: 3,
+                              ),
+                              BoxShadow(
+                                color: theme.primaryAccent.withValues(
+                                  alpha: 0.26,
+                                ),
+                                blurRadius: 28,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                bottleCanvas,
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -808,10 +992,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (_isAnimating) return;
-        context.read<SettingsCubit>().playClickSound();
-        context.read<SettingsCubit>().triggerSelectionHaptic();
-        context.read<GameCubit>().onBottleTap(index);
+        _handleBottleTap(context, state, index);
       },
       child: content,
     );
@@ -868,6 +1049,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _GameScreenViewportMetrics metrics,
   ) {
     final theme = AppTheme.of(context);
+    final tutorialLocksControls = _tutorialController.blocksOtherInput;
     // The controls stay in one low-profile row so the footer reads quickly
     // and the Expanded middle section keeps the most vertical space.
     return Row(
@@ -878,17 +1060,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             icon: Icons.undo_rounded,
             label: 'Undo',
             accentColor: theme.primaryAccent,
-            onTap: state.moveHistory.isNotEmpty
-                ? () {
-                    context.read<SettingsCubit>().playClickSound();
-                    context.read<SettingsCubit>().triggerLightHaptic();
-                    AdService.instance.handleUndoClick(
-                      onUndoGranted: () {
-                        context.read<GameCubit>().undo();
-                      },
-                      onAdFailed: () {},
-                    );
-                  }
+            tutorialDimmed: tutorialLocksControls,
+            onTap: state.moveHistory.isNotEmpty && !tutorialLocksControls
+                ? () => _handleUndoTap(context)
                 : null,
           ),
         ),
@@ -899,17 +1073,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             icon: Icons.lightbulb_outline_rounded,
             label: 'Hint',
             accentColor: theme.goldAccent,
-            onTap: state.status == GameStatus.playing
-                ? () {
-                    context.read<SettingsCubit>().playClickSound();
-                    context.read<SettingsCubit>().triggerLightHaptic();
-                    AdService.instance.handleHintClick(
-                      onHintGranted: () {
-                        context.read<GameCubit>().getHint();
-                      },
-                      onAdFailed: () {},
-                    );
-                  }
+            tutorialDimmed: tutorialLocksControls,
+            onTap: state.status == GameStatus.playing && !tutorialLocksControls
+                ? () => _handleHintTap(context)
                 : null,
           ),
         ),
@@ -920,11 +1086,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             icon: Icons.refresh_rounded,
             label: 'Restart',
             accentColor: theme.warmAccent,
-            onTap: () {
-              context.read<SettingsCubit>().playClickSound();
-              context.read<SettingsCubit>().triggerLightHaptic();
-              context.read<GameCubit>().restartLevel();
-            },
+            tutorialDimmed: tutorialLocksControls,
+            onTap: tutorialLocksControls
+                ? null
+                : () {
+                    context.read<SettingsCubit>().playClickSound();
+                    context.read<SettingsCubit>().triggerLightHaptic();
+                    context.read<GameCubit>().restartLevel();
+                  },
           ),
         ),
       ],
@@ -936,6 +1105,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     required IconData icon,
     required String label,
     required Color accentColor,
+    bool tutorialHighlighted = false,
+    bool tutorialDimmed = false,
     VoidCallback? onTap,
   }) {
     return _CompactActionButton(
@@ -946,6 +1117,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       compact: metrics.isCompact,
       height: metrics.actionButtonHeight,
       radius: metrics.actionButtonRadius,
+      tutorialHighlighted: tutorialHighlighted,
+      tutorialDimmed: tutorialDimmed,
     );
   }
 
@@ -1217,6 +1390,8 @@ class _CompactActionButton extends StatelessWidget {
     required this.compact,
     required this.height,
     required this.radius,
+    this.tutorialHighlighted = false,
+    this.tutorialDimmed = false,
   });
 
   final IconData icon;
@@ -1226,59 +1401,91 @@ class _CompactActionButton extends StatelessWidget {
   final bool compact;
   final double height;
   final double radius;
+  final bool tutorialHighlighted;
+  final bool tutorialDimmed;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final enabled = onTap != null;
 
-    return GamePressable(
-      onTap: onTap,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 180),
-        opacity: enabled ? 1 : 0.42,
-        child: DecoratedBox(
-          decoration: AppTheme.gradientButtonDecoration(
-            accentColor: tint,
-            isEnabled: enabled,
-            emphasized: false,
-            radius: radius,
-            theme: theme,
-          ),
-          child: SizedBox(
-            height: height,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 8 : 10,
-                vertical: compact ? 6 : 8,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: Colors.white, size: compact ? 17 : 18),
-                  SizedBox(width: compact ? 6 : 8),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(
-                          alpha: enabled ? 1.0 : 0.74,
-                        ),
-                        fontSize: compact ? 13 : 14,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        if (tutorialHighlighted)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius + 4),
+                  border: Border.all(
+                    color: theme.goldAccent.withValues(alpha: 0.88),
+                    width: 2,
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.goldAccent.withValues(alpha: 0.34),
+                      blurRadius: 18,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        GamePressable(
+          onTap: onTap,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 180),
+            opacity: tutorialDimmed
+                ? 0.34
+                : enabled
+                ? 1
+                : 0.42,
+            child: DecoratedBox(
+              decoration: AppTheme.gradientButtonDecoration(
+                accentColor: tint,
+                isEnabled: enabled,
+                emphasized: tutorialHighlighted,
+                radius: radius,
+                theme: theme,
+              ),
+              child: SizedBox(
+                height: height,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 10,
+                    vertical: compact ? 6 : 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: Colors.white, size: compact ? 17 : 18),
+                      SizedBox(width: compact ? 6 : 8),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(
+                              alpha: enabled ? 1.0 : 0.74,
+                            ),
+                            fontSize: compact ? 13 : 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -36,12 +36,17 @@ class GameCubit extends Cubit<GameState> {
     final safeLevel = level.clamp(1, maxLevel);
     final config = LevelGenerator.configForLevel(safeLevel);
     final numColors = config.numColors;
-    final bottles = LevelGenerator.generate(
-      numColors,
-      emptyBottles: config.emptyBottles,
-      shuffleMultiplier: config.shuffleMultiplier,
-    );
-    final moveLimit = _moveLimitForLevel(safeLevel, numColors);
+    final tutorialBottles = LevelGenerator.tutorialBottlesForLevel(safeLevel);
+    final bottles =
+        tutorialBottles ??
+        LevelGenerator.generate(
+          numColors,
+          emptyBottles: config.emptyBottles,
+          shuffleMultiplier: config.shuffleMultiplier,
+        );
+    final moveLimit = tutorialBottles == null
+        ? _moveLimitForLevel(safeLevel, numColors)
+        : 16;
 
     emit(
       GameState(
