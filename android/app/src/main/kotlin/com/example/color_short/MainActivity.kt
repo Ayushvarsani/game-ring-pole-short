@@ -1,4 +1,4 @@
-package com.example.color_short
+package com.mind_color_pour
 
 import io.flutter.embedding.android.FlutterActivity
 
