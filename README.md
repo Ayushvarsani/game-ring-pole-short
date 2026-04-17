@@ -1,4 +1,4 @@
-# mind_color_pour
+# mindcolorpour
 
 A new Flutter project.
 

@@ -1,6 +1,6 @@
 {
-    "name": "mind_color_pour",
-    "short_name": "mind_color_pour",
+    "name": "mindcolorpour",
+    "short_name": "mindcolorpour",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

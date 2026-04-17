@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mind_color_pour/tutorial/tutorial_controller.dart';
-import 'package:mind_color_pour/tutorial/tutorial_data.dart';
-import 'package:mind_color_pour/tutorial/tutorial_step.dart';
-import 'package:mind_color_pour/tutorial/tutorial_storage.dart';
+import 'package:mindcolorpour/tutorial/tutorial_controller.dart';
+import 'package:mindcolorpour/tutorial/tutorial_data.dart';
+import 'package:mindcolorpour/tutorial/tutorial_step.dart';
+import 'package:mindcolorpour/tutorial/tutorial_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

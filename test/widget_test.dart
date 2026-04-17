@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mind_color_pour/models/bottle_model.dart';
+import 'package:mindcolorpour/models/bottle_model.dart';
 import 'package:flutter/material.dart';
 
 void main() {
