@@ -30,8 +30,6 @@ class AppConfig {
 
   static bool get isProduction => environment == AppEnvironment.prod;
 
-  static String get apiBaseUrl => _value('API_BASE_URL');
-
   static String env(String key, {String fallback = ''}) {
     return _value(key, fallback: fallback);
   }
