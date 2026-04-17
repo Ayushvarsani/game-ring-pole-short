@@ -1,4 +1,4 @@
-package com.mind_color_pour
+package com.mindcolorpour
 
 import io.flutter.embedding.android.FlutterActivity
 
