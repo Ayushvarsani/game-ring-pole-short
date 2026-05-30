@@ -16,10 +16,7 @@ class BottleModel extends Equatable {
   /// Unique identifier for this bottle.
   final int id;
 
-  const BottleModel({
-    required this.id,
-    required this.colors,
-  });
+  const BottleModel({required this.id, required this.colors});
 
   /// Whether this bottle is completely empty.
   bool get isEmpty => colors.isEmpty;
@@ -62,19 +59,13 @@ class BottleModel extends Equatable {
   /// Creates a copy with an added color segment on top.
   BottleModel addColor(Color color) {
     assert(!isFull, 'Cannot add to a full bottle');
-    return BottleModel(
-      id: id,
-      colors: [...colors, color],
-    );
+    return BottleModel(id: id, colors: [...colors, color]);
   }
 
   /// Creates a copy with the top color segment removed.
   BottleModel removeTop() {
     assert(!isEmpty, 'Cannot remove from an empty bottle');
-    return BottleModel(
-      id: id,
-      colors: colors.sublist(0, colors.length - 1),
-    );
+    return BottleModel(id: id, colors: colors.sublist(0, colors.length - 1));
   }
 
   /// Creates a deep copy of this bottle.

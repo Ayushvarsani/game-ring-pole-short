@@ -1,0 +1,84 @@
+﻿Analyzing game-ring-pole-short...
+
+  error - lib\screens\game_screen.dart:38:13 - The name 'int' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'int'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:40:3 - bool isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:41:7 - The name 'int' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'int'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:42:7 - The name 'int' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'int'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:108:28 - The name 'int' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'int'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:109:14 - int isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:117:28 - The name 'int' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'int'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:118:14 - int isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:173:33 - int isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:182:36 - The name 'GameState' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'GameState'. - non_type_as_type_argument
+  error - lib\screens\game_screen.dart:184:16 - The property 'status' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:184:31 - The property 'status' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:184:46 - The property 'level' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:184:60 - The property 'level' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:186:19 - The property 'status' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:189:19 - The property 'status' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:190:59 - The property 'level' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:191:67 - The property 'level' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:194:19 - The property 'status' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:195:40 - The argument type 'Object?' can't be assigned to the parameter type 'GameState'.  - argument_type_not_assignable
+  error - lib\screens\game_screen.dart:197:19 - The property 'moveCount' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!'). - unchecked_use_of_nullable_value
+  error - lib\screens\game_screen.dart:231:57 - The argument type 'Object?' can't be assigned to the parameter type 'GameState'.  - argument_type_not_assignable
+  error - lib\screens\game_screen.dart:244:45 - GameState isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:341:49 - GameState isn't a type. Try correcting the name to match an existing type. - not_a_type
+  error - lib\screens\game_screen.dart:398:38 - The method '_buildBottleWidget' isn't defined for the type '_GameScreenState'. Try correcting the name to the name of an existing method, or defining a method named '_buildBottleWidget'. - undefined_method
+  error - lib\screens\game_screen.dart:421:30 - The method '_buildBottleWidget' isn't defined for the type '_GameScreenState'. Try correcting the name to the name of an existing method, or defining a method named '_buildBottleWidget'. - undefined_method
+  error - lib\screens\game_screen.dart:438:25 - The named parameter 'clipBehavior' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'clipBehavior'. - undefined_named_parameter
+  error - lib\screens\game_screen.dart:466:18 - Non-nullable instance field 'context' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:467:5 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:467:5 - Non-nullable instance field 'GameState' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:467:15 - Variables must be declared using the keywords 'const', 'final', 'var' or a type name. Try adding the name of the type of the variable or the keyword 'var'. - missing_const_final_var_or_type
+  error - lib\screens\game_screen.dart:468:5 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:468:9 - Variables must be declared using the keywords 'const', 'final', 'var' or a type name. Try adding the name of the type of the variable or the keyword 'var'. - missing_const_final_var_or_type
+  error - lib\screens\game_screen.dart:468:16 - Expected an identifier. - missing_identifier
+  error - lib\screens\game_screen.dart:468:16 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:469:5 - Can't have modifier 'required' here. Try removing 'required'. - extraneous_modifier
+  error - lib\screens\game_screen.dart:469:25 - Non-nullable instance field 'bottleType' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:470:5 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:470:5 - Non-nullable instance field 'required' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:470:23 - Non-nullable instance field 'fillType' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:471:5 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:471:5 - Non-nullable instance field 'required' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:471:5 - The name 'required' is already defined. Try renaming one of the declarations. - duplicate_definition
+           - The first definition of this name at lib\screens\game_screen.dart:470:5.
+  error - lib\screens\game_screen.dart:471:19 - Non-nullable instance field 'bottleSize' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:472:5 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:472:5 - Non-nullable instance field 'bool' must be initialized. Try adding an initializer expression, or a generative constructor that initializes it, or mark it 'late'. - not_initialized_non_nullable_instance_field
+  error - lib\screens\game_screen.dart:472:10 - Variables must be declared using the keywords 'const', 'final', 'var' or a type name. Try adding the name of the type of the variable or the keyword 'var'. - missing_const_final_var_or_type
+  error - lib\screens\game_screen.dart:472:31 - Expected to find ';'. - expected_token
+  error - lib\screens\game_screen.dart:473:3 - Expected an identifier. - missing_identifier
+  error - lib\screens\game_screen.dart:473:4 - Expected a method, getter, setter or operator declaration. This appears to be incomplete code. Try removing it or completing it. - expected_executable
+  error - lib\screens\game_screen.dart:473:6 - Expected a method, getter, setter or operator declaration. This appears to be incomplete code. Try removing it or completing it. - expected_executable
+  error - lib\screens\game_screen.dart:587:17 - Undefined name '_bottleKeys'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:594:9 - Undefined name '_isAnimating'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:595:9 - Undefined name 'context'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:598:21 - Undefined name 'context'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:601:23 - The function '_getBottleBasePosition' isn't defined. Try importing the library that defines '_getBottleBasePosition', correcting the name to the name of an existing function, or defining a function named '_getBottleBasePosition'. - undefined_function
+  error - lib\screens\game_screen.dart:603:11 - Undefined name '_sourcePos'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:607:27 - Undefined name '_sourcePos'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:608:39 - Undefined name '_sourcePos'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:609:38 - Undefined name '_tiltAnimation'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:610:38 - Undefined name '_tiltAnimation'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:621:27 - Undefined name 'state'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:622:20 - Undefined name '_isAnimating'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:622:36 - Undefined name 'state'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:623:49 - Undefined name '_levelAnimation'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:623:73 - Undefined name 'state'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\screens\game_screen.dart:1047:1 - Expected a method, getter, setter or operator declaration. This appears to be incomplete code. Try removing it or completing it. - expected_executable
+warning - lib\screens\game_screen.dart:27:7 - The value of the field '<unnamed>' isn't used. Try removing the field, or using it. - unused_field
+warning - lib\screens\game_screen.dart:45:10 - The value of the field '_destPos' isn't used. Try removing the field, or using it. - unused_field
+   info - lib\screens\game_screen.dart:466:18 - The member 'context' overrides an inherited member but isn't annotated with '@override'. Try adding the '@override' annotation. - annotate_overrides
+   info - lib\screens\game_screen.dart:467:5 - The variable name 'GameState' isn't a lowerCamelCase identifier. Try changing the name to follow the lowerCamelCase style. - non_constant_identifier_names
+   info - lib\screens\game_screen.dart:467:15 - An uninitialized field should have an explicit type annotation. Try adding a type annotation. - prefer_typing_uninitialized_variables
+   info - lib\screens\game_screen.dart:467:15 - Missing type annotation. Try splitting the declaration and specify the different type annotations. - strict_top_level_inference
+   info - lib\screens\game_screen.dart:468:5 - An uninitialized field should have an explicit type annotation. Try adding a type annotation. - prefer_typing_uninitialized_variables
+   info - lib\screens\game_screen.dart:468:5 - Missing type annotation. Try splitting the declaration and specify the different type annotations. - strict_top_level_inference
+   info - lib\screens\game_screen.dart:468:9 - An uninitialized field should have an explicit type annotation. Try adding a type annotation. - prefer_typing_uninitialized_variables
+   info - lib\screens\game_screen.dart:468:9 - Missing type annotation. Try splitting the declaration and specify the different type annotations. - strict_top_level_inference
+   info - lib\screens\game_screen.dart:469:5 - An uninitialized field should have an explicit type annotation. Try adding a type annotation. - prefer_typing_uninitialized_variables
+   info - lib\screens\game_screen.dart:473:3 - An uninitialized field should have an explicit type annotation. Try adding a type annotation. - prefer_typing_uninitialized_variables
+
+79 issues found.

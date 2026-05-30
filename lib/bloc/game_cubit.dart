@@ -4,6 +4,7 @@ import '../models/bottle_model.dart';
 import '../services/level_generator.dart';
 import '../services/level_progress_service.dart';
 import '../services/analytics_service.dart';
+import '../services/ad_service.dart';
 import 'game_state.dart';
 
 /// Cubit that manages all game logic for the Water Sort puzzle.
@@ -18,15 +19,15 @@ class GameCubit extends Cubit<GameState> {
   static const int maxLevel = 200;
   final FirebaseAnalyticsService _analytics;
 
-  GameCubit({
-    FirebaseAnalyticsService? analytics,
-    int initialLevel = 1,
-  })  : _analytics = analytics ?? FirebaseAnalyticsService(),
-        super(GameState(
+  GameCubit({FirebaseAnalyticsService? analytics, int initialLevel = 1})
+    : _analytics = analytics ?? FirebaseAnalyticsService(),
+      super(
+        GameState(
           bottles: const [],
           level: initialLevel.clamp(1, maxLevel),
           levelStartTime: DateTime.now(),
-        )) {
+        ),
+      ) {
     startLevel(initialLevel);
   }
 
@@ -35,19 +36,27 @@ class GameCubit extends Cubit<GameState> {
     final safeLevel = level.clamp(1, maxLevel);
     final config = LevelGenerator.configForLevel(safeLevel);
     final numColors = config.numColors;
-    final bottles = LevelGenerator.generate(
-      numColors,
-      emptyBottles: config.emptyBottles,
-      shuffleMultiplier: config.shuffleMultiplier,
-    );
-    final moveLimit = _moveLimitForLevel(safeLevel, numColors);
+    final tutorialBottles = LevelGenerator.tutorialBottlesForLevel(safeLevel);
+    final bottles =
+        tutorialBottles ??
+        LevelGenerator.generate(
+          numColors,
+          emptyBottles: config.emptyBottles,
+          shuffleMultiplier: config.shuffleMultiplier,
+        );
+    final moveLimit = tutorialBottles == null
+        ? _moveLimitForLevel(safeLevel, numColors)
+        : 16;
 
-    emit(GameState(
-      bottles: bottles,
-      level: safeLevel,
-      moveLimit: moveLimit,
-      levelStartTime: DateTime.now(),
-    ));
+    emit(
+      GameState(
+        bottles: bottles,
+        level: safeLevel,
+        moveLimit: moveLimit,
+        levelStartTime: DateTime.now(),
+        hintsRemaining: AdService.instance.freeHintsRemaining,
+      ),
+    );
 
     _analytics.logLevelStarted(level: safeLevel, numColors: numColors);
   }
@@ -101,7 +110,8 @@ class GameCubit extends Cubit<GameState> {
     final sourceColor = source.topColor!;
 
     // Destination must be empty OR have matching top color
-    if (dest.isNotEmpty && dest.topColor!.toARGB32() != sourceColor.toARGB32()) {
+    if (dest.isNotEmpty &&
+        dest.topColor!.toARGB32() != sourceColor.toARGB32()) {
       // Invalid pour → select the tapped bottle instead if it's not empty
       if (dest.isEmpty) {
         emit(state.copyWith(selectedBottleIndex: -1));
@@ -120,14 +130,16 @@ class GameCubit extends Cubit<GameState> {
     }
 
     // Start the animation phase
-    emit(state.copyWith(
-      status: GameStatus.animating,
-      selectedBottleIndex: -1,
-      animSourceIndex: sourceIdx,
-      animDestIndex: destIdx,
-      animColorCount: pourCount,
-      animColor: sourceColor,
-    ));
+    emit(
+      state.copyWith(
+        status: GameStatus.animating,
+        selectedBottleIndex: -1,
+        animSourceIndex: sourceIdx,
+        animDestIndex: destIdx,
+        animColorCount: pourCount,
+        animColor: sourceColor,
+      ),
+    );
 
     // The actual state mutation happens when the animation completes.
     // See [completePour].
@@ -178,8 +190,9 @@ class GameCubit extends Cubit<GameState> {
 
     // Check for win
     if (playedState.isWon) {
-      final duration =
-          DateTime.now().difference(state.levelStartTime).inSeconds;
+      final duration = DateTime.now()
+          .difference(state.levelStartTime)
+          .inSeconds;
       _analytics.logLevelCompleted(
         level: state.level,
         moves: playedState.moveCount,
@@ -219,32 +232,32 @@ class GameCubit extends Cubit<GameState> {
 
     // Remove from destination and add back to source
     for (int i = 0; i < lastMove.colorCount; i++) {
-      newBottles[lastMove.destIndex] =
-          newBottles[lastMove.destIndex].removeTop();
+      newBottles[lastMove.destIndex] = newBottles[lastMove.destIndex]
+          .removeTop();
     }
     for (int i = 0; i < lastMove.colorCount; i++) {
-      newBottles[lastMove.sourceIndex] =
-          newBottles[lastMove.sourceIndex].addColor(color);
+      newBottles[lastMove.sourceIndex] = newBottles[lastMove.sourceIndex]
+          .addColor(color);
     }
 
-    emit(state.copyWith(
-      bottles: newBottles,
-      moveHistory:
-          state.moveHistory.sublist(0, state.moveHistory.length - 1),
-      undoCount: state.undoCount + 1,
-      selectedBottleIndex: -1,
-    ));
-
-    _analytics.logUndoUsed(
-      level: state.level,
-      moveNumber: state.moveCount,
+    emit(
+      state.copyWith(
+        bottles: newBottles,
+        moveHistory: state.moveHistory.sublist(0, state.moveHistory.length - 1),
+        undoCount: state.undoCount + 1,
+        selectedBottleIndex: -1,
+      ),
     );
+
+    _analytics.logUndoUsed(level: state.level, moveNumber: state.moveCount);
   }
 
   /// Show a hint by highlighting a valid pour move.
   void getHint() {
     if (state.status != GameStatus.playing) return;
-    if (state.hintsRemaining <= 0) return;
+
+    // hint check logic is deferred to ad_service's requiresAdForHint.
+    // If it's exhausted, handleHintClick will trigger AdMob automatically.
 
     final bottles = state.bottles;
 
@@ -271,17 +284,20 @@ class GameCubit extends Cubit<GameState> {
 
         // Skip pouring to an empty bottle if source only has one color
         // (pointless move)
-        if (bottles[dest].isEmpty && bottles[src].topColorCount == bottles[src].colors.length) {
+        if (bottles[dest].isEmpty &&
+            bottles[src].topColorCount == bottles[src].colors.length) {
           continue;
         }
 
         // Found a valid move — highlight it
-        emit(state.copyWith(
-          hintSourceIndex: src,
-          hintDestIndex: dest,
-          hintsRemaining: state.hintsRemaining - 1,
-          selectedBottleIndex: -1,
-        ));
+        emit(
+          state.copyWith(
+            hintSourceIndex: src,
+            hintDestIndex: dest,
+            hintsRemaining: AdService.instance.freeHintsRemaining,
+            selectedBottleIndex: -1,
+          ),
+        );
 
         _analytics.logHintUsed(level: state.level, moveNumber: state.moveCount);
         return;
@@ -294,6 +310,19 @@ class GameCubit extends Cubit<GameState> {
     if (state.hintSourceIndex != -1 || state.hintDestIndex != -1) {
       emit(state.copyWith(hintSourceIndex: -1, hintDestIndex: -1));
     }
+  }
+
+  /// Adds extra moves to the current level attempt and resumes play.
+  void addExtraMoves(int extraMoves) {
+    if (extraMoves <= 0 || state.status == GameStatus.won) return;
+
+    emit(
+      state.copyWith(
+        status: GameStatus.playing,
+        moveLimit: state.moveLimit + extraMoves,
+        selectedBottleIndex: -1,
+      ),
+    );
   }
 
   /// Advance to the next level.

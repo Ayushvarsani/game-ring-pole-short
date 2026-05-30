@@ -27,6 +27,69 @@ class LevelConfig {
 class LevelGenerator {
   static final _random = Random();
 
+  static bool hasTutorialLayout(int level) {
+    return level == 1 || level == 2;
+  }
+
+  static List<BottleModel>? tutorialBottlesForLevel(int level) {
+    return switch (level) {
+      1 => _bottlesFromColorStacks(const <List<Color>>[
+        <Color>[
+          GameColors.red,
+          GameColors.blue,
+          GameColors.red,
+          GameColors.blue,
+        ],
+        <Color>[
+          GameColors.blue,
+          GameColors.red,
+          GameColors.blue,
+          GameColors.red,
+        ],
+        <Color>[
+          GameColors.green,
+          GameColors.green,
+          GameColors.green,
+          GameColors.green,
+        ],
+        <Color>[],
+        <Color>[],
+      ]),
+      2 => _bottlesFromColorStacks(const <List<Color>>[
+        <Color>[
+          GameColors.red,
+          GameColors.green,
+          GameColors.red,
+          GameColors.green,
+        ],
+        <Color>[
+          GameColors.green,
+          GameColors.red,
+          GameColors.green,
+          GameColors.red,
+        ],
+        <Color>[
+          GameColors.blue,
+          GameColors.blue,
+          GameColors.blue,
+          GameColors.blue,
+        ],
+        <Color>[],
+        <Color>[],
+      ]),
+      _ => null,
+    };
+  }
+
+  static List<BottleModel> _bottlesFromColorStacks(List<List<Color>> stacks) {
+    return List<BottleModel>.generate(
+      stacks.length,
+      (index) =>
+          BottleModel(id: index, colors: List<Color>.from(stacks[index])),
+      growable: false,
+    );
+  }
+
   /// Generates a solvable level with the given number of color-filled bottles.
   /// Returns a list of bottles: [numColors] filled + 2 empty bottles.
   ///
@@ -42,8 +105,14 @@ class LevelGenerator {
     int emptyBottles = 2,
     int shuffleMultiplier = 3,
   }) {
-    assert(numColors >= 2 && numColors <= 12, 'numColors must be between 2 and 12');
-    assert(emptyBottles >= 1 && emptyBottles <= 10, 'emptyBottles must be between 1 and 10');
+    assert(
+      numColors >= 2 && numColors <= 12,
+      'numColors must be between 2 and 12',
+    );
+    assert(
+      emptyBottles >= 1 && emptyBottles <= 10,
+      'emptyBottles must be between 1 and 10',
+    );
 
     final colors = GameColors.getColors(numColors);
     final totalBottles = numColors + emptyBottles;
@@ -52,7 +121,9 @@ class LevelGenerator {
     // Each color gets its own full bottle, plus empty workspace bottles.
     List<List<Color>> bottleColors = [];
     for (int i = 0; i < numColors; i++) {
-      bottleColors.add(List.filled(kMaxBottleCapacity, colors[i], growable: true));
+      bottleColors.add(
+        List.filled(kMaxBottleCapacity, colors[i], growable: true),
+      );
     }
     for (int i = 0; i < emptyBottles; i++) {
       bottleColors.add([]);
@@ -188,7 +259,9 @@ class LevelGenerator {
     for (final bottle in bottles) {
       if (bottle.isEmpty) continue;
       if (bottle.length != kMaxBottleCapacity) return false;
-      if (!bottle.every((c) => c.toARGB32() == bottle.first.toARGB32())) return false;
+      if (!bottle.every((c) => c.toARGB32() == bottle.first.toARGB32())) {
+        return false;
+      }
     }
     return true;
   }

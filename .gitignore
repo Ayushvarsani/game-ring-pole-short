@@ -12,6 +12,11 @@
 .swiftpm/
 migrate_working_dir/
 
+# Environment configuration
+.env
+.env.*
+!.env.example
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -43,3 +48,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node.js / React
+/water-sort-react/node_modules
